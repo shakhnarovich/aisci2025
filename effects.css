@@ -1,0 +1,367 @@
+
+/* management of visual effects which can be indicated for elements using
+   < ... data-{effect} ...>
+   Can be applied to <span>s, <img> and perhaps other tags
+ */
+
+:root {
+  --alert-color: #d32f2f;
+  --alert-transition: color 160ms ease-in;
+  --hide-transition: opacity 160ms ease-in;
+  --blur-amount: 4px;
+  --spot-dim: 0.75;
+  --spot-padding: 30px;
+  --enlarge-scale: 2.0;
+  --plate-dim: 0.85;
+  --pulse-duration: 500ms;
+  --strike-color: #d32f2f;
+  --pulse-up:2.0;
+}
+
+/* Alert behavior */
+[data-alert] {
+  transition: var(--alert-transition);
+}
+[data-alert].alerted,
+[data-alert].alerted * {
+  color: var(--alert-color);
+}
+
+/* Hide behavior */
+[data-hide] {
+  transition: var(--hide-transition);
+}
+[data-hide].hidden {
+  opacity: 0;
+  visibility: hidden; /* also removes from a11y tree; omit if you want it screen-reader-visible */
+}
+
+[data-blur] {
+  transition: filter 180ms ease-in;
+}
+[data-blur].blurred
+{ filter: blur(var(--blur-amount));
+}
+
+
+/* Desaturate (turn into grayscale) */
+[data-desaturate]
+{
+  transition: filter 180ms ease-in;
+  transition: color 160ms ease-in;
+}
+[data-desaturate].desat
+{ filter: grayscale(1);
+}
+
+
+/* *********** Animated strike line
+   Appears as a line drawn across the element
+   can control duration (1ms means instantaneous); angle; color; thickness;
+   by default left to right, can trigger right to left*/
+[data-strike] {
+  position: relative;
+  display: inline-block; /* so ::after positions relative to content box */
+}
+
+[data-strike]::after {
+  content: "";
+  position: absolute;
+
+  /* Per-element override variables with defaults */
+  background-color: var(--strike-color, currentColor);
+  height: var(--strike-thickness, 2px);
+  top: 50%; /* centered vertically by default */
+  left: 50%;
+  width: 106%; /* oversize to avoid diagonal clipping */
+
+  /* Center and rotate */
+  transform: translate(-50%, -50%) rotate(var(--strike-angle, 0deg)) scaleX(1);
+  transform-origin: 50% 50%;
+
+  /* Start hidden: clip-path covers full height but 0% width from the right */
+  clip-path: inset(0 100% 0 0);
+
+  /* Animate reveal */
+  
+  transition: clip-path var(--strike-duration, 220ms) ease-in-out;
+
+  pointer-events: none;
+}
+
+[data-strike].struck::after {
+  clip-path: inset(0 0 0 0); /* fully revealed */
+}
+
+/* Reverse: right -->  left reveal */
+[data-strike][data-strike-dir="rtl"]::after {
+  clip-path: inset(0 0 0 100%);               /* hidden (trim from left) */
+}
+[data-strike].struck[data-strike-dir="rtl"]::after {
+  clip-path: inset(0 0 0 0);                  /* fully revealed */
+}
+
+
+/* enlarge: make larger, keep large untill next click/key anywhere
+   data-click="enlarge", or until next click on the element itself
+   data-click="enlarge-persist"
+ */
+
+@keyframes rj-enlarge {
+  0% {transform: scale(1); }
+  30% {transform: scale(calc(var(--enlarge-scale)*0.5)); }
+  60% {transform: scale(calc(var(--enlarge-scale)*.9)); }
+  100% {transform: scale(var(--enlarge-scale)); }
+}
+
+
+
+.enlarging {
+  animation:rj-enlarge var(--pulse-duration) ease-in-out 1;
+}
+.enlarged{ /* keep enlarged */
+  transform:scale(var(--enlarge-scale));
+  position: relative;
+  z-index: 10001;
+}
+
+
+.rj-enlarge, [data-click~="enlarge"], [data-enlarge] {
+  transition: color 60ms ease;
+}
+
+.rj-enlarge.enlarged,
+[data-click~="enlarge"].enlarged,
+[data-enlarge].enlarged {
+  color: var(--enlarge-fg, inherit);  /* set per-element; default = no change */
+}
+
+[data-enlarge].enlarged::before {
+  content: "";
+  position: absolute;
+  top:    calc(-1 * var(--plate-pad, 12px));
+  right:  calc(-1 * var(--plate-pad, 12px));
+  bottom: calc(-1 * var(--plate-pad, 12px));
+  left:   calc(-1 * var(--plate-pad, 12px));
+
+  background: rgba(255, 255, 255, var(--plate-dim, 0.9));
+  z-index: -1;
+  border-radius: var(--plate-radius, 8px);
+
+  pointer-events: none;         /* don’t block clicks */
+}
+
+[data-enlarge],
+[data-click="enlarge"],         /* for click-only nodes */
+.click-enlarge,
+.click-enlarge-persist {
+  display: inline-block;
+  will-change: transform;
+  transform-origin: 50% 50%;
+  transform-box: fill-box; 
+}
+
+/* -------- Popover shown when clicking an enlarged element --------
+   Position knobs we can set per element (as CSS vars on the trigger or via data-pop-*): --pop-left, --pop-top, --pop-width, --pop-max-width, --pop-max-height, --pop-bg, --pop-fg, --pop-radius, --pop-pad, --pop-font-size,--pop-line-height
+ */
+.rj-popover{
+  font-size: var(--pop-font-size, calc(var(--pop-font-base, 0.9rem) * var(--slide-scale, 1)));
+
+  line-height: var(--pop-line-height, 1.25);
+  position: fixed;                 /* viewport positioning */
+  top:  var(--pop-top, 50%);
+  left: var(--pop-left, 50%);
+  transform: translate(-50%, -50%);
+  z-index: 10002;                  /* above .enlarged (10001) */
+  max-width: var(--pop-max-width, 60vw);
+  width:     var(--pop-width, auto);
+  max-height: var(--pop-max-height, 75vh);
+  overflow: auto;
+  background: var(--pop-bg, #fff);
+  color: var(--pop-fg, #000);
+  border-radius: var(--pop-radius, 10px);
+  padding: var(--pop-pad, .75em 1em);
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+}
+.rj-popover.on{
+  pointer-events: auto; /* only clickable when shown */
+  opacity: 1;
+}
+.rj-popover img{
+  max-width:100%;
+  display:block;
+}
+/* Only force auto-height when no explicit height is given */
+.rj-popover img:not([height]):not([style*="height"]) {
+   height:auto;
+}
+
+
+.rj-popover .zoom-scroller > img{
+  max-width: none !important;  /* overrides .rj-popover img{ max-width:100% } */
+  height: auto;
+}
+
+
+
+/******** Pulsing (make the element bigger, then smaller, then
+   back to normal)
+   Variables (can specify <varname>: val; in style to override defaults)
+   --pulse-up  [1.2]   upscaling factor
+   --pulse-down [0.9]  downscaling factor
+   --pulse-duration [500ms]  
+ */
+
+
+/* define keyframe animation named rj-pulse */
+/* can include --pulse-up: 1.5; --pulse-down: 0.5; in style=... */
+@keyframes rj-pulse {
+  0% { transform: scale(1); }
+  30%{ transform: scale(var(--pulse-up, 1.2)); }
+  60%{ transform: scale(var(--pulse-down, .9)); }
+  100%{ transform: scale(1); }
+}
+
+[data-pulse]
+{
+  display: inline-block;
+  will-change: transform;
+  transform-origin: 50% 50%; 
+}
+
+/* specify that we will be using the animation defined by rj-pulse */
+/* can include --pulse-duration:300ms; in style */
+[data-pulse].pulsing{
+  animation: rj-pulse var(--pulse-duration) ease-in-out 1; 
+}
+
+
+/*********** Jiggle (bring attention to the element)*/
+@keyframes rj-jiggle {
+  0%,100% { transform: translateX(0) rotate(0deg); }
+  15%     { transform: translateX(-2px) rotate(-1deg); }
+  30%     { transform: translateX(2px)  rotate(1deg); }
+  45%     { transform: translateX(-3px) rotate(-2deg); }
+  60%     { transform: translateX(1px)  rotate(1deg); }
+  75%     { transform: translateX(-0.5px) rotate(-0.2deg); }
+}
+[data-jiggle].jiggling {
+  animation: rj-jiggle 600ms ease-in-out 1;
+  display:inline-block;          /* important */
+  vertical-align: middle; 
+  will-change: transform; /* signals to browser to prepare to optimize */
+  transform-origin: 50% 50%;
+}
+
+
+/* ******** Spotlight:
+   Overlay that dims everything except a circular hole over the element
+   style="--spot-dim: 0.85;" per slide or per element indicates how dark
+   the area is by the time it gets 85% of the way to the edge of the circle
+ */
+
+
+
+/* Viewport-fixed overlay so mask coords are in viewport px */
+
+.rj-spotlight-overlay-global {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 180ms ease-in-out;
+
+  /* Dark layer + halo */
+  background: radial-gradient(
+    circle var(--sr, 0px) at var(--sx, -1000px) var(--sy, -1000px),
+    rgba(0,0,0,0) 0%,                /* fully clear at center */
+    rgba(0,0,0,0) 70%,               /* stay clear for most of radius */
+    rgba(0,0,0, calc(var(--spot-dim) * 0.5)) 85%, /* start darkening */
+    rgba(0,0,0, var(--spot-dim)) 100% /* fully dimmed at edge */
+  );
+}
+.rj-spotlight-overlay-global.on{ opacity: 1; }
+
+
+/* Clickable elements: effects triggered by adding data-click="effect"
+ */
+
+[data-click]
+{
+  text-decoration: underline;
+  text-underline-offset: .08em;
+  text-decoration-thickness: .08em;
+  cursor: pointer;
+}
+
+
+
+
+/* dealing with accessibility motion reduction tools */
+@media (prefers-reduced-motion: reduce){
+  [data-jiggle].jiggling{ animation:none !important; }
+  [data-pulse].pulsing{ animation:none !important; }
+}
+
+/* annoying: if I want to animate stuff after all the fragments have been revealed, need to add a ghost-step (empty fragment) for each additional step.
+   In Emacs C-c g will insert a desired number of these.
+ */
+.ghost-step {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* keep it totally invisible even if someone inspects it */
+  opacity: 0;
+}
+
+
+/* Optional per-element overrides, e.g.:
+   <span data-alert="2-3" style="--alert-color:#005EB8">blue alert</span>
+ */
+
+
+
+/* in custom.css */
+.todo-blink {
+  color: red;
+  font-size: 200%;         /* make it stand out */
+  font-weight: bold;
+  animation: todo-fade 5s ease-in-out infinite;
+}
+
+@keyframes todo-fade {
+  0%   { opacity: 0; }
+  50%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Scrollable zoom/pan viewport shown inside the popover */
+.zoom-scroller{
+  max-width: 90vw;
+  max-height: 80vh;
+  width: auto;             /* popover can size itself */
+  height: auto;
+  overflow: auto;          /* gives you scrollbars */
+  background: #fff;
+  border-radius: 8px;
+  padding: 0;              /* content flush to edges */
+  cursor: grab;            /* hints you can pan by dragging (optional) */
+}
+.zoom-scroller:active { cursor: grabbing; }
+
+/* Inside the viewport, let the image exceed the box so it can scroll */
+.zoom-scroller > img{
+  display: block;
+  max-width: none;         /* IMPORTANT: don’t shrink to fit */
+  height: auto;
+  /* Optional: start zoomed-in; adjust to taste or omit to use natural size */
+  /* width: 1600px; */     /* OR: width: 200%; */
+}
+

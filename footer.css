@@ -1,0 +1,51 @@
+.footer-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 1.2em;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.625em;
+  font-family: 'ComputerModernSans', sans-serif;
+  line-height: 1;
+  padding: 0.35em 1em 0.35em 1em;   /* bar height now = line-height + padding */
+
+  background-color: #005eb8;
+  color: white;
+  z-index: 50;
+  
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+  pointer-events: none;  /* prevents blocking slide interactions */
+}
+
+.footer-left,
+.footer-section,
+.footer-slide-number {
+  font-size: 0.6em;         /* ~12px at normal scale; scales with slides */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Keep section ~80% area while remaining vertically centered without assuming a fixed height */
+.footer-section {
+  position: absolute;
+  right: 25%;
+  top: 50%;
+  transform: translate(50%, -50%);  /* horizontal + vertical centering */
+  pointer-events: none;
+}
+
+/* Slide number in the bottom-right, but use ems so spacing scales with font */
+.footer-slide-number {
+  position: absolute;
+  right: 3.75em;            /* ~60px at normal scale; scales with font */
+  top: 50%;
+  transform: translate(50%, -50%);
+  pointer-events: none;
+}
+
+

@@ -1,0 +1,434 @@
+.reveal .slides {
+  position: relative;
+} 
+
+
+/* Right gutter at the slide edge only */
+:root { --slide-right-gutter: var(--list-right-gutter, 8vw); }
+
+.reveal .slides section {
+  padding-inline-end: var(--slide-right-gutter);
+}
+
+.reveal .slides section ul,
+.reveal .slides section ol {
+  margin-right: var(--list-right-gutter) !important;  /* shrinks usable line width */
+  box-sizing: border-box;
+}
+
+.reveal .slides section li {
+  overflow-wrap: anywhere;  /* still break long tokens if needed */
+  hyphens: auto;
+}
+
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.slide-title {
+  text-transform: none;
+}
+
+.reveal h2.slide-title,
+.reveal h3.slide-title {
+  color: #005eb8;
+  text-transform: none;
+}
+
+
+
+.slide-title {
+  font-size: 1.8em;
+  font-weight: bold !important;
+  color: #005eb8;  /* TTIC blue */
+  text-align: center;
+  margin-top: 30px;
+  margin-bottom: 40px;
+  max-width: 90%;
+  margin-inline: auto;
+}
+
+.reveal section {
+  position: relative;
+}
+
+
+/* presentation title */
+
+.title-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  margin-top: 1em;
+}
+
+
+.title {
+  font-size: 2.4em;
+  font-weight: bold;
+  color: #005eb8;
+  text-align: center;
+  text-transform: none;
+}
+
+.subtitle {
+  font-size: 2.0em;
+  font-weight: bold;
+  color: #005eb8;
+  text-align: center;
+  text-transform: none;
+}
+
+.date, .author {
+  font-size: 1.2em;
+  text-align: center;
+  margin-top: 0.5em;
+  color: #005eb8;
+}
+
+
+.logo {
+  height: 120px;
+}
+
+.columns {
+  display: flex;
+  gap: 30px;
+}
+
+
+
+.side-video {
+  width: 400px;
+  height: 300px;
+  border: 1px solid #ccc;
+}
+
+.video-row {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+
+.video-row video {
+  width: 400px;
+  height: 300px;
+  border: 1px solid #ccc;
+}
+
+
+.minipage-container {
+  display: flex;
+  align-items: center; /* vertically center */
+  /* to align differently: for [t] say style="align-items: flex-start;"
+                           for [b]     style="align-items: flex-end;"
+ */
+  justify-content: center; /* horizontally center */
+  gap: 1em; /* space between columns */
+}
+
+.minipage {
+  padding: 0.5em;
+}
+
+.minipage ul,
+.minipage ol {
+  margin-left: 0;      /* cancel browser default extra margin */
+  margin-right: 0 !important;
+  padding-left: 1.2em; /* same as outer UL padding */
+  padding-inline-start: 0;            /* no padding-based indent */
+  margin-inline-start: var(--ul-indent, 1.0em);
+  list-style-position: outside;
+}
+
+
+/* Center lone images inside minipages */
+.minipage > img,
+.minipage > figure > img {
+  display: block;
+  margin-inline: auto;  /* same as margin-left/right: auto */
+}
+
+/* lists */
+
+ul, ol {
+  text-align: left !important;
+  margin-left: 0;
+  padding-left: 1.5em;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+li {
+  text-align: left !important;
+}
+
+ul li, ol li {
+  margin-bottom: 0.5em; /* adjust as needed */
+}
+
+
+ul li:last-child,
+ol li:last-child
+{
+  margin-bottom: 0; /* no extra gap after last bullet */
+}
+
+.reveal .slides li .br-gap {
+  display: block;
+  height: var(--li-br-gap, 0.35em);
+}
+
+ul ul,
+ul ol,
+ul .tabular
+{
+  margin-top: 20px;
+  margin-bottom: 20px;
+}  
+
+
+
+/* plots */
+.plot-container .xtick text,
+.plot-container .ytick text,
+.plot-container .legend text {
+  font-family: "Computer Modern" sans-serif !important;
+}
+
+
+/* tabular */
+
+
+/* Base  -- no alignment, just a loose grid*/
+.tabular {
+  --cols: 3;
+  --col-gap: 0.5em;
+  --row-gap: 0.5em;
+  /* optional: helps if adding padding later */
+  /* box-sizing: border-box; */
+}
+
+
+/* ---------- GRID: strict alignment (like LaTeX tabular) ---------- */
+.tabular--grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  column-gap: var(--col-gap);
+  row-gap: var(--row-gap);
+}
+.tabular--grid > * {
+  justify-self: center;
+}
+
+/* Optional: 2-row captions helper (images row + captions row) */
+.tabular--grid.two-row-captions
+  > :is(img, figure, video, svg, canvas, picture,.diagram-stack) { grid-row: 1; }
+
+
+.tabular--grid.two-row-captions > .caption {
+  grid-row: 2;
+  text-align: center;
+  font-size: 0.6em;
+  align-self: start;
+}
+
+/* ---------- FLEX: stacked columns (free-flow) ----------
+   Note: this treats tabular as a row of columns; each column is vertically
+   aligned, but the elements of the columns are not aligned across columns*/
+.tabular--flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--row-gap, 0.5em) var(--col-gap, 0.5em);
+}
+
+
+/* Column wrapper for stacked content */
+
+.tabular--flex > img,
+.tabular-col {
+  flex: 0 0 calc((100% - (var(--cols,3) - 1) * var(--col-gap,0.5em)) / var(--cols,3));
+}
+
+.tabular-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--row-gap);
+}
+
+
+.tabular--grid.proportional-fit {
+  grid-template-columns: repeat(var(--cols, 3), auto);
+  justify-content: center; /* center the whole block if it ends up narrower */
+}
+
+.tabular--flex.proportional-fit {
+  justify-content: center;            /* center the whole block if narrower */
+}
+.tabular--flex.proportional-fit > img,
+.tabular--flex.proportional-fit > .tabular-col {
+  flex: 0 0 auto;                     /* width = content, no stretching */
+}
+
+
+.tabular img {
+  height: var(--img-height, auto);
+  width:  var(--img-width,  auto);  
+  max-width: 100%;
+  display: block;
+  margin-inline: auto; /* center horizontally if narrower than cell */
+}
+
+.minipage > .tabular.shift-left {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  display: inline-grid;     /* shrink-wrap the grid instead of spanning full width */
+  width: fit-content;       /* container width == content width */
+  justify-items: start;     /* left-align items inside each grid cell */
+} 
+
+
+
+.caption { font-size: 0.9em; text-align: center; }
+
+/* Attributed image (data-attrib) */
+.attributed-img{
+  display: inline-block;     /* shrink to the image’s width */
+  margin: 0;                 /* remove default figure margins */
+  max-width: 100%;           /* don’t overflow slide */
+}
+
+.attributed-img > img {
+  display: block;            /* no inline gap under image */
+  max-width: 100%;
+}
+
+/* Caption generated from data-attrib */
+.attributed-img::after,
+.attributed-quote::after {
+  content: attr(data-attrib);
+  display: block;
+  margin-top: 0.3em;
+  /* style */
+  line-height: 1.25;
+  font-size: var(--attrib-size, 0.6em);
+  color: var(--attrib-color, #555);
+  max-width: calc(var(--attrib-max) * 100%, 80%);
+  
+  /* layout: right-aligned and wrapped at 80% of image/figure width */
+  text-align: right;
+  margin-left: auto;         /* makes the 80%-wide block hug the right edge */
+
+  /* help wrapping long URLs/names gracefully */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-line; 
+}
+
+
+/* Attributed quote (centered, italic), reuses the same ::after rules */
+.attributed-quote {
+  display: block;
+  /* shrink-to-fit the quote and center it; falls back gracefully */
+  width: fit-content;
+  max-width: min(80ch, 100%);
+  margin: 0.25em auto 0;      /* centers horizontally in slide or minipage */
+  text-align: center;
+  font-style: italic;
+}
+.attributed-quote blockquote { margin: 0; } /* remove default <blockquote> margins */
+
+/* Right-aligned attribution under the quote (already defined via ::after) */
+.attributed-quote::after {
+  content: attr(data-attrib);
+  display: block;
+  margin-top: 0.3em;
+  line-height: 1.25;
+  text-align: right;
+  max-width: 80%;     /* wraps at 80% of quote width, like images */
+  margin-left: auto;  /* hug the right edge */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Optional: left-align attribution when needed (mirrors .attributed-img.align-left) */
+.attributed-quote.align-left::after {
+  text-align: left;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.attributed-img:has(.diagram-stack){ display:block; width:100%; }
+
+
+
+/* Optional per-figure overrides:
+   <figure class="attributed-img" style="--attrib-size:.55em; --attrib-color:#666; --attrib-max:0.75" …>
+ */
+.attributed-img {
+  --attrib-size: 0.6em;
+  --attrib-color: #555;
+  --attrib-max: 0.8;
+}
+
+
+/* Generated caption from data-attrib (works inside the grid) */
+.attributed-img[data-attrib]::after {
+  content: attr(data-attrib);      /* ensure content is set */
+  display: block;                  /* keep it visible */
+}
+
+
+/* Left-align the generated caption when requested */
+.attributed-img.align-left::after {
+  text-align: left;
+  margin-left: 0;
+  margin-right: auto;   /* keep the 80% block anchored to the left */
+}
+
+/* code display */
+/* Keep code indentation when <pre><code> is inside .minipage */
+.reveal .slides .minipage pre,
+.reveal .slides .minipage pre code,
+.reveal .slides .minipage code.hljs {
+  white-space: pre !important;   /* preserve leading spaces exactly */
+  tab-size: 2;                   /* tabs, if any */
+  -moz-tab-size: 2;
+  text-indent: 0 !important;     /* cancel any hanging indent */
+  text-align: left !important;   /* avoid centered code text */
+}
+
+.reveal .slides .minipage pre {
+  margin: .5em 0;
+  overflow: auto;                /* scroll instead of rewrapping */
+}
+
+.reveal pre code[data-noescape] [data-alert]{
+  display: inline-block;     /* give it a measurable box */
+  padding: 0 .15em;          /* optional: a little breathing room */
+  border-radius: .2em;       /* optional: nicer hit area */
+}
+
+/* Force left alignment for attributed figures + their image + caption */
+.attributed-img.shift-left { 
+  display: block !important;
+  width:fit-content;           /* figure width == image width */
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+
+.minipage > figure.shift-left > img
+{
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+.attributed-img.shift-left::after {   /* caption */
+  display:block;
+  text-align:right;
+  inline-size:min(80%, 100%);  /* wrap at 80% of image width */
+  margin-left:auto;            /* stick to the right edge of the image */
+}
+

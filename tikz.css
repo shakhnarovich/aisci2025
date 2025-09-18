@@ -1,0 +1,41 @@
+/* can be used to display animations over svg stacks extracted from PDFs;
+   could be used more broadly to replace images over the same spot
+ */
+.diagram-stack {
+  position: relative;
+  width: 100%;
+  max-width: none; /* 80% optional: scale down */
+  margin: 0 auto;
+  height: var(--stack-img-height, 0px);  /* reserve space for the stack */
+}
+
+
+.diagram-stack img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-width: none !important;
+  max-height: none !important;
+ /* outline: 1px dashed #ff0000;*/
+}
+
+/* Stack rule: keep only the last revealed image visible */
+.reveal .slides .diagram-stack .fragment { 
+  display: none; 
+  transition: none !important; /* no fade */
+}
+.reveal .slides .diagram-stack .fragment.visible { 
+  display: block; 
+}
+/* If a revealed image has a later revealed sibling, hide it
+   → the last revealed one remains visible indefinitely. Requires :has().
+ */
+
+.reveal .slides .diagram-stack .fragment.visible:has(~ .fragment.visible) {
+  display: none;
+}
+
+
+
