@@ -5,14 +5,56 @@
 <style>
  body { font: 16px/1.5 system-ui, sans-serif; padding: 3rem 1rem; max-width: 48rem; margin: auto; }
  h1 { margin-bottom: 1rem; }
- ul { list-style: none; padding: 0; }
+ /* Remove bullets only on ULs that are not nested inside another UL */
+ ul:not(:where(ul ul)) { list-style: none; padding-left: 0; margin: 0; }
+
+/* Nested ULs keep bullets and indentation */
+ul ul { list-style: disc; padding-left: 1.25rem; }
  li { margin: .6rem 0; }
  a { text-decoration: none; }
 </style>
 <h1>AI Sci 2025 — Slide Decks</h1>
 <ul>
-  <li><a href="teaching/aisci-sep2025/talk1.html">Talk 1: …</a></li>
-  <li><a href="teaching/aisci-sep2025/talk2.html">Talk 2: …</a></li>
-  <li><a href="teaching/aisci-sep2025/talk3.html">Talk 3: …</a></li>
-  <li><a href="teaching/aisci-sep2025/talk4.html">Talk 4: …</a></li>
+  <li><a href="teaching/aisci-sep2025/intro.html">Introduction</a>
+   <ul>
+    <li> ML fundamentals review
+    </li>
+    <li> Stochastic gradient descent
+    </li>
+    <li> Backpropagation
+    </li>
+    <li> Convolutional networks
+    </li> 
+   </ul>
+  </li>
+  <li><a href="teaching/aisci-sep2025/transformers.html">Modeling sequences</a>
+   <ul>
+    <li> Recurrent neural networks; LSTM
+    </li>
+    <li> Self-attention and transformers
+    </li>
+    <li> Encoders and decoders
+    </li>
+   </ul>
+  </li>
+  <li><a href="teaching/aisci-sep2025/selfsup.html">Learning without full supervision</a>
+   <ul>
+    <li> Transfer learning and fine-tuning
+    </li>
+    <li> Self-supervised learning
+    </li>
+    <li> Contrastive learnning: CLIP, DiNO, etc.
+    </li>
+   </ul>
+  </li>
+  <li><a href="teaching/aisci-sep2025/generative.html">Generative models</a>
+  <ul>
+   <li> Autoencoders and VAEs
+   </li>
+   <li> GANs
+   </li>
+   <li> Diffusion models
+   </li>
+  </ul>
+  </li>
 </ul>
