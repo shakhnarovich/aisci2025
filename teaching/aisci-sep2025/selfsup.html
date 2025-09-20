@@ -1,0 +1,1910 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AI for Scientists Deep Dive</title>
+    <!-- if want subtitle: uncomment -->
+    <template id="subtitle">Self-supervised learning</template>
+    <template id="date">September 2025</template>
+
+    <link rel="icon" type="image/png" sizes="64x64" href="../../icons/rjs.png">
+    <link rel="stylesheet" href="../../reveal/dist/reveal.css">
+    <link rel="stylesheet" href="../../reveal/fonts.css">
+    <link rel="stylesheet" href="../../reveal-style.css">
+    <link rel="stylesheet" href="../../custom.css">
+    <link rel="stylesheet" href="../../effects.css">
+    <link rel="stylesheet" href="../../footer.css">
+    <link rel="stylesheet" href="../../tikz.css">
+    <link rel="stylesheet" href="../../highlight/styles/github.min.css">
+
+    <style>
+     :root {
+       --pop-fg: #005eb8;
+       --pop-bg: #edea85;
+       --pop-font-base:3rem;
+     }
+     .caption { font-size: 0.6em;}
+     body, .reveal {
+       font-family: 'ComputerModernSans', sans-serif;
+       font-size: 42px;
+       color: navy;
+       backgrounw: white;
+     }
+
+     .reveal .controls {
+       display: none !important;
+     }
+    </style>
+  </head>
+  <body>
+
+
+    <div class="reveal">
+      <div class="slides">
+
+<section id="title-slide" class="nofooter" data-section=" ">
+  <h1 id="doc-title" class="title"></h1>
+  <h1 id="doc-subtitle" class="subtitle"></h1>
+  <div class="title-row">
+    <div id="doc-author" class="author">Greg Shakhnarovich</div>
+    <img src="../../ttic-logo-full.png" alt="Institution logo" class="logo">
+  </div>
+  <div id="doc-date" class="date"></div>
+</section>
+
+
+
+
+<!-- the footer (shown unless section class="nofooter";
+
+-->
+<div id="footer-bar" class="footer-bar">
+  <div class="footer-left">AI/Science: Introduction · Greg Shakhnarovich · September 2025</div>
+  <div class="footer-section" id="section-label-overlay"></div>
+  <div class="footer-slide-number" id="slide-number-overlay"></div>
+</div>
+
+
+
+<!--
+     overview of transductive/sup/semi-sup
+
+     bootstrapping => SAM
+     metric learning; triplet loss
+     zero- and X-shot
+     transfer learning
+
+     clarify VLMs are not great at vision benchmarks
+
+     old proxy tasks
+
+     MAE
+-->
+
+
+<section data-section="Transfer learning">
+  <h2 class="slide-title">Deep networks as feature extractors</h2>
+  <ul>
+    <li> Traditional ML framework: input $\mathbf{x}$ $\to$ task-specific
+      target $\vy$; $\mathbf{x}$ is represented using <i>features</i>
+      designed with task in mind
+    </li>
+    <li>Deep learning: end-to-end learning of an $L$-layer network $F$
+      \[\begin{align}
+      \text{input}\;\mathbf{x}\;\to\;\text{features}\ \bphi(\vx)\,=\,F_{\text{1:L-1}}(\mathbf{x})\;
+      &
+      \class{rj-blur-3-}{
+      \to\;\text{label predictor}\;\vy\,=\,F_{L}(\mathbf{x})
+      }\\
+      &
+      \class{rj-hide-0-2}{
+      \to\;\text{label predictor}\;\textcolor{red}{\vy'}\,=\,
+      \textcolor{red}{F'_{L\class{rj-pulse-3}{\class{rj-hide-0-3}{:L'}}}}(\mathbf{x})
+      }
+      \end{align}
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="1"> Once we learn $F(\mathbf{x})$ for a particular $h$, can reuse the features (if not the predictor)
+      for new task $\vy'\,=\,F'(\bphi(\mathbf{x}))$
+    </li>
+
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:4; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:6cm;">
+    <img class="fragment" data-fragment-index="2" src="img/tune/dog.jpeg">
+    <img class="fragment" data-fragment-index="2" src="img/tune/cat.jpeg">
+    <span class="caption fragment" data-fragment-index="2">Original</span>
+    <span class="caption fragment" data-fragment-index="2"></span>
+    <img class="fragment" data-fragment-index="3" src="img/tune/wolf.jpeg">
+    <img class="fragment" data-fragment-index="3" src="img/tune/tiger.jpeg">
+    <span class="caption fragment" data-fragment-index="3">Novel</span>
+    <span class="caption fragment" data-fragment-index="3"></span>
+    
+  </div> <!-- tabular -->
+
+  <li class="fragment" data-fragment-index="4">Why might having learned $F$ (and so $\bphi$) for the original task be helpful when approaching the new task?
+      </li>
+      <li class="fragment" data-fragment-index="5">We presume that there is some relationship between the tasks. 
+      </li>
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Transfer learning</h2>
+  <ul>
+    <li>Main idea: <i>reuse</i> what we have learned on the original task
+    </li>
+    <li class="fragment" data-fragment-index="1">Transfer: attach a new "head" $F'_{L:L'}$, often a (shallow) <span data-click="enlarge" style="--enlarge-scale:1.6">MLP<template data-role="pop">  When $F'_L$ is a single linear layer, i.e., just a linear classifier on top of $\bphi(\vx)$, we have <i>linear probing</i>. Its performance is often used as a measure of quality of learned features $\bphi$</template></span>, to the "frozen" $F{\text{1:L}}$
+      <figure class="attributed-img" data-attrib="Avi Chawla">
+	<img src="img/tune/transfer-avi-chawla.gif">
+      </figure>
+    </li>
+    <li class="fragment" data-fragment-index="1">
+      You can pre-process: compute $\vx'=F_{\text{1:L-1}}(\vx)$ for your (new) training data, save to disk, and train $F$ to map $\vx'\to\vy'$. This can save a lot of memory during the new training
+    </li>
+    <li class="fragment" data-fragment-index="2">Alternative (if not feasible): run $F_{\text{1:L-1}}$ during new training, but stop the gradient flow below the new predictor:
+      <pre style="margin-top:-100px; margin-bottom:-100px">
+      	<code type="language-python">
+for param in model.feature_extractor.parameters():
+  param.requires_grad_(False)
+       	</code>
+      </pre>
+    </li>
+    <li class="fragment" data-fragment-index="2">Depending on task similarity, you may want to remove more than one layer from the top, i.e., define $\bphi(\vx)=F_{\text{1:\textcolor{red}{L-k}}}$
+    </li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Fine-tuning</h2>
+  <ul>
+    <li>Fine-tune: attach a new head <i>and</i> update the weights of both $F'_{\text{1:L-1}}$ and $F'_{L:L'}$ 
+      <img src="img/tune/finetune-avi-chawla.gif">
+      
+    </li>
+    <li class="fragment" data-fragment-index="1">Again, we may replace one or more layers on top with one or more new layers
+    </li>
+    <li class="fragment" data-fragment-index="1">This is much more expensive; we now <i>have</i> to keep the full network in memory and run forward and backward passes during training
+    </li>
+    <li class="fragment" data-fragment-index="2">But: both feature transfer and fine-tuning are likely to succeed with much less data than it took to train the original model!
+    </li>
+    <li class="fragment" data-fragment-index="3">Major concern: <i>forgetting</i>. After fine-tuning to $\vy'$ we may no longer be able to predict the labels $\vy$ for the original task. Many efforts to combat this (we will see some shortly)
+    </li>  
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">LoRA</h2>
+  <ul>
+    <li>Most common fine-tuning technique today: Low Rank Adaptation (LoRA, Hu et al., 2021)
+    </li>
+    <li>Weights in transformers (and other models) are matrices: $\mathbf{W}_k,\mathbf{W}_q,\mathbf{W}_v$ in attention, MLP layers, etc.
+    </li>
+    <li>Recall: singular value decomposition allows us to approximate a $n\times d$ matrix as a product of two small matrices, $n\times k$ and $k\times d$ (rank $k$ approximation)
+      <figure class="attributed-img" data-attrib="images from: kim95175.tistory.com">      
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:8cm;">
+	<img src="img/tune/svd.png"><img class="fragment" data-fragment-index="1" src="img/tune/svd-low-rank.png">
+
+	  <img src="selfsup.html">
+	<span class="caption">SVD: $\mW\,=\,\mathbf{USV}^T$</span>
+	<span class="caption fragment" data-fragment-index="1">Approximate by only taking top $k$ eigenvectors
+      </div> <!-- tabular -->
+      </figure>
+
+    </li>
+    <li class="fragment" data-fragment-index="2">LoRA: learn an <i>additive</i> low-rank weight matrix
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:8cm;">
+	<img class="fragment" data-fragment-index="2" src="img/tune/lora-diagram.png">
+	<img class="fragment" data-fragment-index="3" src="img/tune/lora-savings.png">
+
+      </div> <!-- tabular -->
+    </li>  
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Multi-task learning</h2>
+  <ul>
+    <li>When we know of multiple tasks in advance, we can train the multiple predictors all at once, with a shared feature extractor. This is <i>multi-task learning</i>
+
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:2; --col-gap:.6em;--img-height:300px">
+	<figure class="attributed-img" data-attrib="Avi Chawla">
+	  <img src="img/tune/multi-task-avi-chawla.gif">
+	</figure>
+	
+	<img src="img/tune/multitask-math.svg">
+
+      </div> <!-- tabular -->
+      <div>
+
+
+    </li>
+    <li class="fragment" data-fragment-index="1">Typically each batch is for a single task; then we can swap copies of task-specific predictor $F'$ in and out
+    </li>
+    <li class="fragment" data-fragment-index="1">When doing distributed fine-tuning, we may want to split the tasks across GPUs and/or nodes
+    </li>
+    <li class="fragment" data-fragment-index="2">Careful: sometimes it may be important in fact to mix the batches
+    </li>
+    <li class="fragment" data-fragment-index="2">Also pay attention to task balance and most importantly, loss scale balance -- don't let gradient from one task dominate other tasks!
+      <ul>
+	<li> Example: task A predicts one-channel images in $[0,1]$ range, task B predicts 100-channel maps in $[-100,100]$ range; loss is MSE for both tasks, but the loss range will be drastically different!
+      	</li>
+	<li>Scale the losses
+	</li>
+      </ul>
+    </li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Unsupervised domain adaptation</h2>
+  <ul>
+    <li>Basic assumption of ML: data come from some joint distribution $p(\vx,\vy)$
+    </li>  
+    <li>Transfer learning: new $\vy$, same $\vx$; adapt from modeling $\pc{\vy}{\vx}$ to
+      $p'\left(\vy'|\vx\right)$    </li>
+    <li class="fragment" data-fragment-index="1">Domain adaptation: same $\vy$, different $p(\vx)$
+    </li>
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		--img-height:7cm;">
+      <img class="fragment" data-fragment-index="1" src="img/tune/da-person.png">
+      <img class="fragment" data-fragment-index="1" src="img/tune/da-numbers.png">
+    </div> <!-- tabular -->
+    <li class="fragment" data-fragment-index="2">Full fine tuning may help. But what if we do not have labels for the new domain?
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">Unsupervised domain adaptation (Ganin et al., 2016)
+      	</li>
+	<li class="fragment" data-fragment-index="3">Fine-tune the features so you can't tell new data from old by looking at them
+      	</li>
+	<li class="fragment" data-fragment-index="3">We need to update the (original) predictor $\bphi(\vx)\to\vy$ so it works with the updated features
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="3" src="img/tune/da-diagram.png" height="400px">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Adding new input tokens</h2>
+  <ul>
+    <li>When working with a tokenizer+transformer we may want to add new tokens
+      <ul>
+	<li>Specialized tokens for our domain, or new concepts/words
+      	</li>
+	<li>Merged existing tokens (if we want to assign a single vector to those)
+	</li>
+      </ul>
+    </li>  
+  </ul>
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:12cm;">
+    <img src="img/lm/college-teaser.png" class="fragment" data-fragment-index="1">
+    <img class="fragment" data-fragment-index="2" src="img/lm/college-embedding.png">
+
+  </div> <!-- tabular -->
+  <ul>
+    <li class="fragment" data-fragment-index="1">Example: CoLLEGe: Concept Embedding Generation for Large Language Models, Teehan et al., 2024.
+    </li>
+    <li class="fragment" data-fragment-index="2">Key difficulty: initializing the new tokens; random initialization may work but often does not work well
+    </li>
+    <li class="fragment" data-fragment-index="2">CoLLEGe: mask the new token in the (few) training examples; guess the meaning from the transformed and averaged embeddings on the sentences;fine-tune projection from that to actual new embeddings
+    </li>
+    <li class="fragment" data-fragment-index="2">Keep the LM frozen
+    </li>  
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Case study: OpenVLA</h2>
+  <ul>
+    <li>A complex modern model fine-tuning protocol: OpenVLA, Finn et al., 2024      
+    </li>
+    <div class="tabular tabular--grid two-row-captions proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		--img-height:12cm;">
+      <img src="img/tune/openvla-overview.png">
+      <span class="caption">OpenVLA overview</span>
+      <img class="fragment" data-fragment-index="1" src="img/tune/openvla-tuning.png">
+      <span class="caption fragment" data-fragment-index="1">OpenVLA overview</span>
+    </div> <!-- tabular -->
+    <li class="fragment" data-fragment-index="2">Input: image <span data-click="enlarge" style="--enlarge-scale:1.6">embedding<template data-role="pop"> Where does it come from? a feature extractor pre-trained with self-supervision; more on this shortly!</template></span> must be adapted to the embedding space the LM expects
+    </li>
+    <li class="fragment" data-fragment-index="3">Output: new tokens are added to vocabulary, representing action ("move the robot hand 3cm forward", "turn the arm 20 degrees")
+    </li>
+  </ul>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:65%;">
+      <ul>  
+	<li class="fragment" data-fragment-index="4">Everything is fine tuned end to end
+       	</li>
+	<li class="fragment" data-fragment-index="4">"Sandwich fine-tuning": tune image encoder, token embeddings, and last layer of LM (keep most of the LM frozen)
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:35%;">
+      <img class="fragment" data-fragment-index="4" src="img/tune/vla-table.png" height="230px" style="margin-left:-50px">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+
+
+
+
+<section>
+  <h2 class="slide-title">Review: supervision formats in learning </h2>
+  <ul>
+    <li>Supervised learning: from a set  $\mathcal{D}=\left\{(\vx_i,\vy_i)\right\}$of labeled input/target pairs.
+    </li>
+    <li>Semi-supervised learning: data has labeled $D_\mathcal{l}=\{(\vx^l_i,\vy^l_i)\}$ and unlabeled $\mathcal{D}_u=\left\{\vx_j^u\right\}$ components.
+    </li>
+    <li>Weakly supervised learning: supervision labels $\vy$ are a (non-invertible) function of the true labels $\vy^\ast$.
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<ul>
+	  <li class="fragment" data-fragment-index="1">Multiple instance learning: labels are provided for "bags" of examples, with a bag labeled $+$ if it contains at least one positive example<br>
+	    Example: images labeled with object presence (but we want location)
+	  </li>
+	</ul>
+      </ul>
+    </div>
+    <div class="minipage" style="width:40%;">
+      <figure class="attributed-img fragment" data-fragment-index="1" data-attrib="Brand et al.">
+	<img src="img/ml/mil-bags-brand.png" height="250px">
+      </figure>
+
+    </div>
+  </div> <!-- minipage container -->
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:80%;">
+      <ul>
+	<ul>
+	  <li class="fragment" data-fragment-index="2">Similarity labels: we have triplet labels $(\vx_i^1,\vx_i^2,s_i)$ where $s_i$ is $+$ if $\vx_i^1$ is <i>similar</i> to $\vx_i^2$ and $-$ otherwise
+	  </li>
+       	</ul>
+      </ul>
+    </div>
+    <div class="minipage" style="width:20%;">
+      <figure class="attributed-img fragment" data-fragment-index="4" data-attrib="ArcFace">
+      	<img src="img/ml/triplet-faces.png" height="250px">
+      </figure>
+
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li class="fragment" data-fragment-index="3">Metric learning: instead of learning to predict label $\vy$ from $\vx$, learn to predict degree of similarity (distance) between $\vx$s
+    </li>
+  </ul>
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Siamese networks</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+
+      <ul>
+	<li>  A popular strategy when only same/different labeling is
+	  available: <i>Siamese</i> networks (e.g., Chopra et al., 2005)
+	</li>
+	<li class="fragment" data-fragment-index="1">Training data is either positive/negative pairs, or triplets of the form
+	  $\left({\color{red}\vx^a},{\color{green}\vx^{+}},{\color{blue}\vx^{-}}\right)$
+      	</li>
+	<li class="fragment" data-fragment-index="2">Two or three <span data-click="enlarge" style="--enlarge-scale:1.0"><template data-role="pop">
+	  I.e., networks of identical architecture that share weights, or more likely in practice, one network operating on the batch of pairs or triplets and the loss computed accordingly
+	</template>
+	copies</span> of identical networks computing embedding $\vf(\vx)$
+      	</li>
+	<li class="fragment" data-fragment-index="3">The embedding must satisfy the training data similarity (pair or triplet) constraints
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+
+      <img src="img/ml/siamese-arch.webp" height="500px">
+
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li class="fragment" data-fragment-index="4">Intuition: if $\vx$ is similar to $\vx'$, then $\eucnorm{\vf(\vx)-\vf(\vx')}$ should be small; otherwise it should be large
+    </li>
+    <li class="fragment" data-fragment-index="4">Need to convert this intuition into a (differentiable) loss function
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul class="fragment" data-fragment-index="5">
+	<li>Important: get the right negatives for the triplets (not too easy, but also not too hard)
+	</li>
+	<li>Multiple strategies for "triplet mining"
+	</li>
+      </ul>
+
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img src="img/ml/semi-hard.png" height="340px" class="fragment" data-fragment-index="5">
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Metric learning: losses</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+
+      <ul>
+	<li>Contrastive loss: push/pull according to pair labels
+	</li>
+	<li>May define two different loss functions for positive/negative pairs (unclear if useful)
+      	</li>
+	<li class="fragment" data-fragment-index="1">Alternative: define a <i>pair classification</i> task, train a similarity classifier $F_{sim}$
+	  \[(\vx_i^1,\vx_i^2)\,\to\,F_{sim}\left([\vf\left(\vx_i^1\right),\vf\left(\vx_i^1\right)]\right)
+	  \]
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/ml/contrastive.png" height="400px">
+    </div>
+  </div> <!-- minipage container -->
+  <ul><li>Most common today: use triplets, and some sort of triplet loss
+  </li>
+  </ul>
+
+  <figure class="attributed-img fragment" data-fragment-index="2" data-attrib="Jack Tattershall">
+    <img src="img/ml/siamese-framework.webp" height="470px">
+  </figure>
+
+
+</section>
+
+
+<section data-section="Self-supervised learning">
+  <h2 class="slide-title">Self-supervision</h2>
+  <ul>
+    <li>Supervised: explicitly provided (by external source!) labels
+      $\{(\vx_i,\y_i)\}$<br>
+      Objective: predict $\{\widehat{\vy}_i\}$, minimize loss $\sum_iL(\widehat{\vy}_i,\vy_i)$
+    </li>
+    <li>Self-supervised: still have labels and loss to minimize, but the labels are inherent in the data (i.e., made up)
+    </li>
+    <li>Unsupervised (<span data-click="enlarge" style="--enlarge-scale:1.0"><template data-role="pop"> This is a bit fuzzy of course; in density estimation, we want to maximize $\sum_i p(\vx_i;\btheta)$ which is a per-example loss</template>traditionally</span>): do not have labels associated with individual data at all.; loss is defined in terms of entire data set of example groups
+    </li>
+    <li class="fragment" data-fragment-index="1">More important distinction today: self-supervised learning is understood to be a form of <i>pretraining</i>, with the goal to use the model for some downstream task(s)
+    </li>
+    <li class="fragment" data-fragment-index="2">Common pattern for self-supervision: reconstruction objective.
+    </li>
+    <li class="fragment" data-fragment-index="2">Design a split $\vx\to (\vx',\vz)$, where $\vz$ is withheld and only $\vx'$ is observed. Train a model to predict $\vz$ from $\vx'$, minimizing loss $\sum_iL(\widehat{\vz}_i=F(\vx'_i),\vz_i)$
+    </li>
+  </ul>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul >
+	<li class="fragment" data-fragment-index="3">Example: colorization as a proxy for understanding
+      	</li>
+	<li class="fragment" data-fragment-index="4">Intuition: must understand something about the (visual) world
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img class="fragment" data-fragment-index="3" src="img/ssup/colorization-scheme.png">
+
+    </div>
+  </div> <!-- minipage container -->
+
+</section>  
+<section>
+    <h2 class="slide-title">Self-supervision by unshuffling</h2>
+    <div class="minipage-container" style="align-items: center;">
+      <div class="minipage" style="width:60%;">
+	
+
+	<ul>
+	  <li>Can we borrow the ideas from NLP pretraining? E.g., predict whether a patch is part of the image or randomly inserted?
+	  </li>
+	  <li class="fragment" data-fragment-index="1">Too easy; it's very hard to make a random patch not look obviously wrong
+	  </li>
+	</ul>  
+      </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:7cm;">
+	<img src="img/ssup/car.jpg">
+	<img class="fragment" data-fragment-index="1" src="img/ssup/car-fur.jpg">
+	<span class="caption">Natural</span>
+	<span class="caption fragment" data-fragment-index="1">Random</span>
+	
+      </div> <!-- tabular -->
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:60%;">
+    
+
+    <ul>
+      <li class="fragment" data-fragment-index="1">Instead, we will reshuffle the image and try to shuffle it back
+      </li>
+      <li class="fragment" data-fragment-index="1">Doersch et al., 2015: sample patch $A$; then sample patch $B$
+	from one of eight possible locations relative to $A$
+      </li>	 
+    </ul>  
+
+
+  </div>
+    <div class="minipage" style="width:40%;">
+      <img class="fragment" data-fragment-index="2" src="img/ssup/doersch-idea.png">
+
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:6cm;margin-top:-60px">
+	<img class="fragment" data-fragment-index="3" src="img/ssup/doersch-question.png">
+	<img class="fragment" data-fragment-index="5" src="img/ssup/doersch-answer.png" style="--img-height:8cm">
+
+      </div> <!-- tabular -->
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      Figuring out the answer likely requires some "semantic" reasoning
+   </div>
+</div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Learning to unshuffle</h2>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:550px;">
+    <img src="img/ssup/doersch-arch.png">
+    <img class="fragment" data-fragment-index="1" src="img/ssup/doersch-nn-big.png">
+
+  </div> <!-- tabular -->
+  <ul style="margin-top:50px">
+    <li class="fragment" data-fragment-index="1">Nearest neighbors in the embedding space might shed light into what the model learns
+    </li>
+    <li class="fragment" data-fragment-index="1">E.g., does it ignore "nuisance" aspects (color, when it is not important)
+    </li>  
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">Tricky cheating paths</h2>
+  <ul>
+    <li>When setting up the split $\vx\to(\vx',\vz)$ avoid unexpected shortcuts for the model to latch on to!
+    </li>
+    <li>Make it hard to figure out the answer without understanding.
+    </li>  
+    <li>Example 1: jigsaw puzzle continuity hints.
+      <div class="tabular tabular--grid  proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:5.5cm;align-items:center">
+	<img class="fragment" data-fragment-index="1" src="img/ssup/patches-hint.png">
+	<img class="fragment" data-fragment-index="2" src="img/ssup/patches-solution.png" style="--img-height:8.5cm">
+
+      </div> <!-- tabular -->
+    </li>
+    <li class="fragment" data-fragment-index="3">Example 2: chromatic aberration, due to real lense deviating from thin lense abstraction
+      <div class="tabular tabular--grid"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:8cm;">
+	<img class="fragment" data-fragment-index="3" src="img/ssup/chromatic.png">
+	<img class="fragment" data-fragment-index="4" src="img/ssup/doersch-colors.png" >
+	
+      </div> <!-- tabular -->
+      (solution: remove color, or correct color channels)
+    </li>  
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">Learning to rotate</h2>
+  <img src="img/ssup/rotations-net.png" height="800px">
+  <ul><li>General form: apply a transformation $i\in\{T_1,\ldots,T_k\}$, identify $i$ from $T(\vx)$ 
+  </li>	 
+  </ul>	 
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Other proxy tasks</h2>
+  <ul><li>Many proxy tasks proposed in 2015--2020
+  </li>	 
+  </ul>
+
+  <img src="img/ssup/self-sup-methods.png" height="800px">
+
+</section>
+
+
+<section data-section="Autoencoders">
+  <h2 class="slide-title">Review: coding and information</h2>
+  <ul>
+    <li>Consider a discrete random variable $X$ with
+      distribution $p$, $p_i=\Pr(X=i)$,   $i=1,\ldots,m$
+    </li>
+    <li><span data-click="enlarge" style="--enlarge-scale:1.0"><template data-role="pop">  The optimal (Shannon) code is built by encoding sequences of symbols, not individual symbols (again, recall BPE), and approaches the optimal rate asymptotically</template>Optimal code</span> (knowing $p$) assigns code word of length $-log
+      p_i$ to $X=i$, with expected code length
+      \[L(p)\;=\;-\sum_{i=1}^m p_i\log p_i.
+      \]
+      (intuition: more common words have shorter code words; recall BPE)
+    </li>
+    <li class="fragment" data-fragment-index="1">Suppose now we <i>think</i> (estimate) the distribution is
+      $\hat{p}=q$, and build an optimal code under that assumption; the codeword lengths are $-\log q_i$
+    </li>  
+    <li class="fragment" data-fragment-index="1">The expected length of the encoded message (per symbol) is
+      \[L(q)\;=\;-\sum_{i=1}^m \textcolor{red}{p_i}\log q_i.\]
+    </li>
+    <li class="fragment" data-fragment-index="2">The <i>cost</i> of estimating $p$ by $q$: <span class="fragment" data-fragment-index="5">the <span data-click="enlarge" style="--enlarge-scale:1.0" style="--pop-width:600px"><template data-role="pop"> Kullback-Leibler divergence is a measure of similarity between distributions. It's non-negative, asymmetric, $\dkl{p}{q}\ne\dkl{q}{p}$, and is zero if and only if $p\equiv q$ </template>KL divergence</span> between $p$ and $q$</span>
+      \[
+      \class{rj-hide-0-4}{\dkl{p}{q}\;=\;}L(q)-L(p)\;=\;-\sum_{i=1}^m p_i\log q_i\;+\sum_{i=1}^m p_i\log
+      p_i\\
+      \class{rj-hide-0-2}{=\;\sum_{i=1}^m p_i(\log p_i\,-\,\log q_i)\;}
+      \class{rj-hide-0-3}{=\;\sum_{i=1}^m p_i\log\frac{p_i}{q_i}.}
+      \]
+    </li>  
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="3" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="5" aria-hidden="true"></span>
+
+</section>
+
+
+
+
+<section>
+  <h2 class="slide-title">Autoencoders</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+
+      <ul>
+	<li>Consider data $\vx\in\mathcal{X}$
+	</li>
+	<li>Basic idea: two networks, $f$ and $g$  
+	</li>
+	<li>Encoder $f_\phi$ maps $\vx$ to <i>latent</i> $\vz$
+	</li>
+	<li>Decoder $g_\theta$ maps $\vz$ back to $\mathcal{X}$
+	</li>
+	<li>
+	  Objective: minimize reconstruction error
+	  \[\min_{\btheta,\bphi}\sum_i\|\vx_i-g_\btheta(f_\bphi(\vx_i))\|^2\]
+	  
+	</li>  
+
+      </ul>	       
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <div class="tabular tabular--grid"
+	   style="--cols:2; --col-gap:.6em;--img-height:7.5cm;align-items:center">
+	<img src="img/ae/ae-basic.png">
+	<img class="fragment" data-fragment-index="1" src="img/ae/ae-deep.jpg.png" style="--img-height:12cm">
+	
+      </div> <!-- tabular -->
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="2">Problem: trivial solution is to set $\vz=\vx$
+    </li>
+  </ul>	 
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+     	<ul>
+	  <li class="fragment" data-fragment-index="3">Solution 1: force a <i>bottleneck</i>, e.g., limit
+	    dimensionality of $\vz$; encourage values of $\vz$ to be mostly zero &rarr; sparse autoencoder
+      	  </li>
+	  <li class="fragment" data-fragment-index="4">Solution 2: denoising autoencoders
+	  </li>
+	  <li class="fragment" data-fragment-index="4">Corrupt $\vx\to\tilde{\vx}$; train on
+   	    \[\sum_i\|\vx-f(g(\tilde{\vx}))\|^2
+	    \]
+	  </li>
+       	</ul>
+      </ul>	       
+    </div>
+    <div class="minipage" style="width:40%;">
+      <figure class="attributed-img fragment" data-fragment-index="5" data-attrib="V. Kumar" style="margin-top:-60px">
+	<img src="img/ae/dae.png" height="400px">
+      </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Autoencoders as pretraining</h2>
+  <ul>
+    <li>Autoencoders learn mapping $E: \vx\to\vz$ which makes reconstruction $D:\vz\to\vx$ possible
+    </li>
+    <li>Intuition: this implies that $E$ extracts information that should be useful
+      for ``semantic'' tasks like recognition
+    </li>  
+  </ul>
+    <div class="minipage-container" style="align-items: center;">
+      <div class="minipage" style="width:50%;">
+     	<ul>
+	  <li>Typical recipe:
+	    <ol type="a">
+	      <li>Train $E$+$D$ on reconstruction
+       	      </li>
+	      <li>Fix $E$, train $C$ on classification
+       	      </li>
+	      <li>Fine-tune $E+C$ (end to end) on classification
+       	      </li>
+     	    </ol>
+	  </li>
+	  <li class="fragment" data-fragment-index="2">The bottleneck $\vz=E(\vx)$ must be small, otherwise we are cheating
+	  </li>
+	</ul>
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img fragment" data-fragment-index="1" data-attrib="Alberti at al">
+	<img src="img/ae/ae-training-pipeline.png" height="400px">
+      </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:60%;">
+    <ul>
+      <li class="fragment" data-fragment-index="2">For images, the encoder and decoder are usually convolutional; the bottleneck may be a vector or a tensor
+      </li>
+      <li class="fragment" data-fragment-index="3">The reconstruction path uses transposed <span data-click="enlarge-persist" style="--enlarge-scale:1.0;--pop-width:200px">
+	<template data-role="pop">
+	  Also, unfortunately, known as "deconvolution": use stride on the output instead of input
+
+	  <img src="img/conv/transposed.gif" height="250px">
+
+	</template>
+	convolutions</span>
+      </li>
+    </ul>  
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <figure class="attributed-img fragment" data-fragment-index="3" data-attrib="Zhang et al., 2024">
+	<div data-click="enlarge-persist"
+	     data-pop-max-width="90vw" data-pop-max-height="80vh"
+	     style="display:inline-block; --pop-width:85vw">
+	  <img src="img/ae/conv-ae.png" height="300px">
+	  <template data-role="pop">
+	    <div class="zoom-scroller">
+	      <img src="img/ae/conv-ae.png"
+	      style="max-width:none; width:100%; height:auto;">
+	    </div>
+	  </template>
+	</div>
+      </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Magic: the denoising autoencoder</h2>
+  <ul>
+    <li>Denoising autoencoders don't necessarily need to be used to remove typical pixel noise
+    </li>  
+    <li>A neat project by Søren L. Kristiansen (2018; medium.com/@sorenlind): train a denoising autoencoder where input is a distorted image of a Magic: The Gathering card
+      <ul>
+	<li>Saturated light, rotation, cropped edges, bad lighting
+	</li>
+      </ul>
+    </li>
+    <img class="fragment" data-fragment-index="1" src="img/vision/magic-ae.webp" height="500px">
+<li class="fragment" data-fragment-index="2">Goal: train a card classifier/search functionality
+</li>
+<li class="fragment" data-fragment-index="2">The inputs here are not artificially distorted versions of the output, but real photos
+</li>
+<li class="fragment" data-fragment-index="2">Training on about 14,000 examples yields reported accuracy of 97% on about 3,300 <i>unseen</i> cards
+</li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Variational autoencoders</h2>
+  <ul>
+    <li>Proposed concurrently by Kingma & Welling (2013) and Rezende et al. (2014)
+    </li>
+    <li>In VAE the focus is on generation; the object of interest is the decoder $D$, while the encoder $E$ is a by-product that can be discarded
+    </li>
+    <li>Assumption: a latent variable $\vz$ such that $p(\vx)\,=\,\int_{\vz}\pc{\vx}{\vz}p(\vz)d\vz$
+    </li>  
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li class="fragment" data-fragment-index="1">Key insight:  Any $d$-dimensional distribution can be
+	  generated by taking $d$ normally distributed variables and mapping
+	  them through some appropriate (possibly very complicated) function $g$
+      	</li>
+	<li class="fragment" data-fragment-index="2">Goal: learn $g$ from data
+      	</li>
+	<li class="fragment" data-fragment-index="3">This is indirectly (implicitly) modeling the true distribution of the data
+      	</li>
+      </ul>  
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular tabular--grid two-row-captions"
+	   style="--cols:1; --col-gap:.6em; --row-gap:.35em;">
+	<img src="img/ae/gen_from_gaussian.svg" style="--img-height:320px" class="fragment" data-fragment-index="1">
+	<span class="caption fragment" data-fragment-index="2" style="font-size:1em"> $x = g(z) = z/10 + z/||z||$</span>
+      </div> <!-- tabular -->
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul class="fragment" data-fragment-index="3">
+	<li>More precisely: we are going to try to build a (parametric) distribution which is close to the true distribution
+      	</li>
+	<li>Even more precisely: close to the <i>empirical</i> distribution, or the "data distribution" of the training set
+	</li>
+
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:50%;">
+     <img class="fragment" height="300px" data-fragment-index="3" src="img/ae/gen_models_diag_2.svg">
+   </div>
+
+</div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">VAE: the model</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li>VAE is a probabilistic model: we are modeling densities
+	</li>  
+	<li> Decoder $p_\theta(\vx|\vz)$: density of $\vx$ given $\vz$
+      	</li>
+	<li class="fragment" data-fragment-index="1">We can have the neural net predict density of a <span data-click="enlarge" style="--enlarge-scale:1.0"><template data-role="pop"> For a $n$x$n$ color image, we will need 6$n^2$ outputs.  </template>Gaussian</span> variable by producing $\bmu$ and $\bsigma$ 
+      	</li>
+	<li class="fragment" data-fragment-index="2">We can sample $\vx$ from there;
+	  or can take deterministic $\vx$ that maximizes $p(\vx|\vz)$
+	  \[\vx^\ast(\vz)=\bmu_x(\vz)\]
+	</li>
+
+      </ul>	 
+      
+
+   </div>
+    <div class="minipage" style="width:45%;">
+      <figure class="attributed-img" data-attrib="Durr, 2016">
+	<img src="img/ae/vae_decoder.svg" class="fragment" data-fragment-index="1">
+      </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">Encoder: $p_\theta(\vx|\vz)$: density of $\vx$ given $\vz$<br>
+	  We will want $\vz$ to be <span data-click="enlarge" style="--enlarge-scale:1.6">Gaussian<template data-role="pop">  Why? Partially for convenience: Gaussians are nice, only need two moments to define, and KL-div is easy to compute. Partially an arbitrary decision; people have experimented with other priors over $\vz$.</template></span>
+      	</li>
+	<li class="fragment" data-fragment-index="4">For $d$-dim $\vz$ output $d$ means and $d$ variances
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:45%;">
+      <img class="fragment" data-fragment-index="3" src="img/ae/vae_encoder_neural.svg" height="300px">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">VAE objective</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+  <ul>
+    <li>Recall: we presume  $p(\vx)\,=\,\int_{\vz}\pc{\vx}{\vz}p(\vz)d\vz$; we should learn to maximize $p_\btheta(\vx)$
+    </li>
+  </ul>  
+    </div>
+   <div class="minipage" style="width:60%;">
+     <img src="img/ae/vae2.svg" height="300px">
+   </div>
+</div> <!-- minipage container -->
+
+
+<ul>
+    <li>This is <span data-click="enlarge" style="--enlarge-scale:1.0">intractable<template data-role="pop">  Long story. Basically, we need to maximize over the latent $\pc{\vz}{\vx}$ which is too expensive since we need to consider all possible $\vz$ that may yield a particular $\vx$. Cf. the partition function graphical models and physics.</template></span>, so we will maximize a <i>lower bound</i> on $p(\vx)$, under the assumption that $\vz$ is a Gaussian. With a bit of work, we <span data-click="enlarge" style="--enlarge-scale:1.0">get<template data-role="pop">  This is the ELBO: Evidence Lower BOund</template></span>:
+      \[\log p(\vx)\,\ge\,\Ep{q(\vz|\vx)}{
+      \log \frac{\pc{\vx}{\vz}}{q(\vz|\vx)}}\,
+      \class{rj-hide-0-0}{
+      =\,
+      \Ep{q(\vx|\vz)}{\log \pc{\vx}{\vz}}\,-\,\dkl{q(\vz|\vx)}{\mathcal{N}(\vz;\mathbf{0},\mathbf{1})}
+      }
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="1">The first term (likelihood) works out to be just per-pixel squared <span data-click="enlarge" style="--enlarge-scale:1.0">reconstruction<template data-role="pop">  We could sample $B$ $\vx$s and average to get an expectation,
+      <img src="img/ae/vae_reconstruction_loss.svg">
+      but in practice we compute the expectation ($i$ is the pixel/color index)
+      \[\sum_i\left(\frac{1}{2}\log \sigma_i^2+\frac{(x_i-\mu_i)^2}{2\sigma_i^2}\right)\]
+    </template></span> loss 
+    </li>
+    <li class="fragment" data-fragment-index="2">The second term penalized for the $\vz$s we get not looking like they came from a standard Gaussian
+      <ul>
+	<li>Recall we get from the encoder $\mu_j$ and $\sigma_j$ for each dimension $j=1,\ldots,d$ of $\vz$. Closed form solution for KL-divergence:
+     	  \[
+	  -\dkl{q(\vz|\vx)}{\mathcal{N}(\vz;\mathbf{0},\mathbf{1})}\,=\,
+	  \frac{1}{2} \sum_{j=1}^d \left(1 + \log \left( \sigma_{z_j}^2 \right) - \mu_{z_j}^2 - \sigma_{z_j}^2\right)
+	  \]
+	</li>
+      </ul>
+    </li>  
+</ul>  
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">VAE training</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:65%;">
+      <img src="img/ae/vae_all2.svg" height="600px">      
+
+   </div>
+    <div class="minipage" style="width:35%;">
+      <img src="img/ae/vae3.svg">
+    </div>
+</div> <!-- minipage container -->
+
+
+
+  <ul>
+    <li>So: train encoder + decoder with a reconstruction objective, while forcing the $\vz$ to look like a Gaussian sample
+    </li>
+    <li class="fragment" data-fragment-index="1">But will $\vz$ really behave like a Gaussian?
+    </li>
+    <li class="fragment" data-fragment-index="1">Once we are done, we can do two things:
+      <ul>
+	<li>Use the encoder output as features $\bphi(\vx)$; can freeze or fine-tune
+      	</li>
+	<li data-blur="2">Use the decoder as a generator, feeding it actually Gaussian $\vz$
+	</li>
+      </ul>
+    </li>  
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Reparameterization trick</h2>
+  <ul>
+    <li>Bad news: we can't actuall run backprop through sampling $\vz$ from the Gaussian given by encoder $(\bmu_z,\bsigma_z)\,=\,q_\phi(\vz|\vx)$
+      We need a <i>reparameterization trick</i>: instead of directly sampling $\vz\sim\mathcal{N}(\bmu_z,\bsigma_z)$, sample a standard Gaussian $\bepsilon\sim\mathcal{N}(\mathbf{0},\mathbf{1})$, and set
+      \[\vz\,=\,\bmu_z\,+\,\bsigma_z\odot\bepsilon\]
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Now the randomness is outside the forward pass and so is also bypassed by the backprop!
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/ae/reparam-trick.png" height="400px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">U-Net vs autoencoder</h2>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:500px;">
+    <img src="img/vision/unet-3d-conor-osullivan.webp">
+    <img src="img/vision/cae.png">
+    <span class="caption">U-Net</span>
+    <span class="caption">Autoencoder</span>
+
+  </div> <!-- tabular -->
+  <ul style="margin-top:40px">
+    <li>What's the difference? <span data-hide="0-0">The skip-layer connections!</span>
+    </li>
+    <li class="fragment" data-fragment-index="1">U-Net can be treated as an autoencoder (but with some cheating)
+    </li>
+    <li class="fragment" data-fragment-index="2">Could use both for "inverse problems" (denoising, super-resolution) or other predictive tasks (segmentation, colorization)
+    </li>
+    <li class="fragment" data-fragment-index="2">Can sample from VAEs, but not from U-Nets!
+    </li>  
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Masked autoencoders</h2>
+  <ul>
+    <li>He et al, 2020: self-supervised training of ViTs by predicting masked patches
+    </li>  
+  </ul>	 
+  <img src="img/ae/maevit.png" height="600px">
+  <ul>
+    <li>Similar to BERT, but without discrete <span data-click="enlarge" style="--enlarge-scale:1.0; --pop-width:70vw">tokens<template data-role="pop"> Terminology confusion: in language modeling, a "token" is an element of the input (character subsequence) that belongs to a particular type, like a word in the dictionary. Input is separated into tokens by a <i>tokenizer</i>, and the tokens are mapped to real vectors using an embedding matrix. <br>In vision, a "token" is a real vector associated with a particular input element (usually a patch). There is no image tokenizer, and no embedding matrix -- there is an embedding network.</template></span>
+    </li>
+    <li>Encoder: ViT we want to train
+    </li>
+    <li>Decoder: a transformer (like a LM decoder); we learn a special mask token (vector)
+      <ul>
+	<li>Discarded after training; is much smaller than encoder (so most computation is not "wasted" on it)
+	</li>
+      </ul>
+    </li>  
+    <li>How much do we mask? What do we mask?
+    </li>  
+</ul>  
+</section>
+
+<section>
+  <h2 class="slide-title">MAE performance</h2>
+  <ul>
+    <li>Unmasking (reconstruction) on ImageNet (training) images
+
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:4; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:4cm;">
+	<img src="img/ae/mae-imagenet-a.jpeg">
+	<img src="img/ae/mae-imagenet-b.jpeg">
+	<img src="img/ae/mae-imagenet-c.jpeg">
+	<img src="img/ae/mae-imagenet-d.jpeg">
+      </div>
+    </li>  
+    <li class="fragment" data-fragment-index="1">Unmasking on COCO (validation) images
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:4; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:4cm;">
+	
+	<img src="img/ae/mae-coco-a.jpeg">
+	<img src="img/ae/mae-coco-b.jpeg">
+	<img src="img/ae/mae-coco-c.jpeg">
+	<img src="img/ae/mae-coco-d.jpeg">
+      </div>
+    </li>
+  </ul>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">More importantly: pre-training then fine-tuning is better than training from scratch (on ImageNet)
+	</li>  
+
+      </ul>  
+      
+   </div>
+   <div class="minipage" style="width:40%;">
+     <img class="fragment" data-fragment-index="2" src="img/ae/mae-vs-sup.svg">
+
+
+   </div>
+</div> <!-- minipage container -->
+
+<div class="tabular tabular--grid two-row-captions proportional-fit"
+     style="--cols:3; --col-gap:.6em; --row-gap:.3em; 
+	    --img-height:10cm;">
+  <img class="fragment" data-fragment-index="3" src="img/ae/mae-trainschedule.svg">
+  <img class="fragment" data-fragment-index="3" src="img/ae/mae-masking-ratio.svg">
+  <span class="caption fragment" data-fragment-index="4">Longer training helps</span>
+  <span class="caption fragment" data-fragment-index="4">More masking helps -- up to a point </span>
+
+</div> <!-- tabular -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Video-MAE</h2>
+  <ul>
+    <li>Same idea as MAE, but in 3D (time added)
+      <img src="img/vision/video-mae-model.svg" height="300px">
+    </li>  
+  </ul>	 
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:500px; align-items:center">
+    <img src="img/vision/video-mae-masking.png" style="--img-height:300px" >
+    <img src="img/vision/video-mae-v2.png" >
+
+    <span class="caption">Masking strategies</span>
+    <span class="caption">Architecture</span>
+  </div> <!-- tabular -->
+  <ul style="margin-top:20px">
+    <li class="fragment" data-fragment-index="1">Video is much more redundant; can mask over 90% of the locations!
+    </li>  
+  </ul>	 
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">MagViT</h2>
+  <img src="img/vision/magvit-model.svg" height="600px">
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li>Many efforts to design a self-supervised method for video transformers
+      	</li>
+	<li>Key difficulty: video is very expensive. Can't afford to map every patch in every frame in a long video to a vector with hundreds or thousands of dimensions! &rarr; interest in <i>discrete</i> tokens
+      	</li>
+	<li>Can't afford to run a very deep model on every patch of every frame
+	</li>
+	<li>Remains an active area of research (including mine)
+	</li>
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:30%;">
+     <img src="img/vision/magvit-arch.svg" height="400px">
+   </div>
+</div> <!-- minipage container -->
+
+
+  
+</section>
+
+<section data-section="Contrastive methods">
+  <h2 class="slide-title">DINO</h2>
+    <div class="minipage-container" style="align-items: center;">
+      <div class="minipage" style="width:50%;">
+        <ul>
+	  <li>Self DIstillation with NO labels (Caron et al., 2020)
+	  </li>
+	  <li>Given an image $\vx$, get two <i>global views</i> (large crops) $\vx_1,\vx2)$ and some (two or more) <i>local views</i> (small crops)
+	    <ul>
+	      <li>Perturb all the crops (color jittering, Gaussian blur, <span data-click="enlarge" style="--enlarge-scale:1.0; --pop-top:80%">solarization<template data-role="pop"> <img src="img/ssup/solarization.jpg">
+</template></span>)
+       	      </li>
+	    </ul>
+	  </li>
+	  <li class="fragment" data-fragment-index="1">Two copies of the same ViT: student and teacher; teacher doesn't get backprop, and instead follows the student with exponential moving <span data-click="enlarge" style="--enlarge-scale:1.0">average<template data-role="pop">  Like momentum. Update teacher $\btheta_t$ using current student $\btheta_s$:
+	    \[\btheta_t\leftarrow \lambda\btheta_t+(1-\lambda)\btheta_s,\] $\lambda$ moving between 0.996 and 1.0.</template></span>
+	  </li>
+	  
+	</ul>
+   </div>
+   <div class="minipage" style="width:50%;">
+     <figure class="attributed-img" data-attrib="Maximilano Viola">
+       <img src="img/ssup/dino-views-viola.png">
+     </figure>
+
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li class="fragment" data-fragment-index="2">Each network predicts a $k$-dim vector, $\vf_t$ and $\vf_s$; it passes <span data-click="enlarge" style="--enlarge-scale:1.0">softmax<template data-role="pop"> Sounds like classification, but there are no labels and no classes. it's just a trick to make the loss behave nice -- vs., for example, trying to use $\eucnorm{\vf_t-\vf_s}^2$</template></span>, yielding $\vp_t=\operatorname{softmax}(\vf_t)$ and $\vp_s=\operatorname{softmax}(\vf_s)$; the loss is $-\sum_jp_{t,j}\log p_{s,j}$
+  </li>
+  <li class="fragment" data-fragment-index="2">The predictions are obtained by attaching a projection layer (to $\mathbb{R}^k$) to the [CLS] token of the ViT
+  </li>
+  <li class="fragment" data-fragment-index="3">This is an example of <i>contrastive learning</i>: instead of learning to predict masked or corrupted values (MAE, autoencoders) we learn to associate the right things with each other
+  </li>	 
+</ul>  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">DINO: attention maps</h2>
+  <ul>
+    <li>We can visualize the attention map by fixing either<br>
+      a location, and showing attention values for that token to all other tokens (per head or aggregated) ;<br>
+      or <tt>[CLS]</tt> and show attention map for for a given head
+    </li>
+    <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <div class="tabular tabular--col">
+
+	<span class="caption">Attn for specific locations</span>
+	<img src="img/ssup/dino-self-att.png" height="400px">
+
+	<span class="caption">Attn for <tt>[CLS], aggregated</tt></span>
+	<img src="img/ssup/dino-teaser-attn.jpeg">
+
+      </div> <!-- tabular -->
+
+   </div>
+   <div class="minipage" style="width:45%;">
+     
+     <div class="tabular tabular--col">
+       <span class="caption">Attn for <tt>[CLS]</tt>, different heads</span>
+       <img src="img/ssup/dino-heads-cls.png" height="700px">
+     </div>
+   </div>
+</div> <!-- minipage container -->
+
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">DINO for downstream tasks</h2>
+  
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Segmentation (without supervision): threshold attention to get 60% of the "mass"
+	</li>
+      </ul>
+      
+      <img src="img/ssup/dino-segmentation.svg" height="600px">
+    </div>
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Transfer to various classification tasks (with fine-tuning)
+	</li>
+      </ul>
+      <img src="img/ssup/dino-downstream.svg" height="400px">
+
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li><span data-strike="1-" style="--strike-angle:-10deg">DINO:</span><span data-hide="0-1">DINOv2:</span> one of the most widely used feature extractors today
+    </li>  
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+</section>
+
+<section>
+  <h2 class="slide-title">iBOT</h2>
+  <ul>
+    <li>Notable effort: iBot: Image BERT Pre-Training with Online Tokenizer, Zhou et al. (2022)
+    </li>
+
+    <img src="img/vision/ibot-scheme.svg" height="600px">
+    <li class="fragment" data-fragment-index="1">Like DINO: two views, student and teacher (following student with EMA)
+      <ul>
+	<li>Unlike DINO: predict per-patch, in addition to per-view 
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="2">Like MAE: predict masked tokens
+      <ul>
+	<li>Unlike MAE: predict features, not pixels
+	</li>
+      </ul>
+    </li>
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">DINOv2</h2>
+  <ul>
+    <li>Better, automatically deduplicated and curated data (142M images)
+    </li>
+    <li>Add the iBOT per-patch loss
+    </li>
+    <li>Many other improvements to the mechanics of learning
+    </li>  
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul class="fragment" data-fragment-index="1">
+	<li>Shows great performance on a variety of tasks
+      	</li>
+	<li>ViT-g: a new implementation of ViT (using <i><span data-click="enlarge" style="--enlarge-scale:1.0">flash<template data-role="pop">An implementation of attention that makes it much faster on GPUs <img src="img/trans/flash.png" height="300px"> It's available in PyTorch -- use it.
+</template></span> attention</i>)<br>
+	  ViT_L distilled: a model (smaller than ViT-g) trained with knowledge distillation from ViT-g
+      	</li>
+	<li>Better to distill from self-supervised ViT-g than to train on each task from scratch (why?)
+      	</li>
+	<li>Sometimes even better to distill than to use the original large model!
+      	</li>
+	<li>Note: these are mostly classification, depth estimation (NYUd, KITTI), or instance-level recognition (Paris)
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <img class="fragment" data-fragment-index="1" src="img/vision/radar-dinov2.svg" height="600px">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Image/text alignment learning</h2>
+  <ul>
+    <li>Assumption: we have a large set of pairs of images and text, in which the text is somehow associated with images
+    </li>
+    <li class="fragment" data-fragment-index="1">Possible source: datasets for image captioning, e.g., COCO <span data-alert="2"> (140k images x 5 captions)</span>
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:4; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:300px;">
+	<img src="img/vlm/skis.jpg">
+	<span class="caption">several men are walking through the snow with a horse drawn sled carrying trees.</span>
+	<img src="img/vlm/cake.jpg">
+	<span class="caption">a woman is posing for a photograph with a small cake.</span>
+	<img src="img/vlm/street.jpg">
+	<span class="caption">a black car parked near an intersection with a no turn sign</span>
+	<img src="img/vlm/dogs.jpg">
+	<span class="caption">two people walking along a path with several dogs</span>
+
+      </div> <!-- tabular -->
+    </li>  
+    <li class="fragment" data-fragment-index="3">An alternative: scrape the HTML ALT tags for "Internet images". Example early dataset: Google Conceptual Captions
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:4; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:300px;">
+	<img src="img/vlm/cc-basket.png">
+	<img src="img/vlm/cc-beach.png">
+	<img src="img/vlm/cc-heights.png" class="fragment" data-fragment-index="4">
+	<img src="img/vlm/cc-marshmallow.png" class="fragment" data-fragment-index="5">
+	<span class="caption">green basket with yellow flowers of dandelions on the brown wooden background</span>
+	<span class="caption">starfish and seashell with hearts on the sandy beach by the ocean
+	</span>
+	<span class="caption fragment" data-fragment-index="4">reach new heights on your trip with an adventure
+	</span>
+	<span class="caption fragment" data-fragment-index="6">sponsored video this application requires HTML5</span>
+      </div> <!-- tabular -->
+    </li>
+   
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">CLIP</h2>
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Contrastive Language–Image Pre-training, Radford et al. (2021)
+	</li>  
+	<li>Main idea: learn to find the correct matches between text and images
+       	</li>
+	<li class="fragment" data-fragment-index="1">Train a <i>pair</i> of encoders together: text $E_{\mathrm{txt}}:I\to\mathbb{R}^{\class{rj-alert-2}{d_{\mathrm{CLIP}}}}$ and image $E_{\mathrm{img}}:T\to\mathbb{R}^{\class{rj-alert-2}{d_{\mathrm{CLIP}}}}$
+      	</li>
+	<li>The dot product $\ip{E_{\mathrm{txt}}(I)}{E_{\mathrm{img}}(T)}$ measures similarity between image $I$ and text $T$
+      	</li>
+	<li>Given a batch of pairs $\left\{(I_i,T_i),i=1,\ldots,n\right\}$, compute the $n\times n$ similarity matrix
+	</li>
+      </ul>	 
+
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/vlm/clip-encoders.svg" height="560px" class="fragment" data-fragment-index="1">
+
+   </div>
+</div> <!-- minipage container -->
+
+<ul>
+
+  <li>Convert into softmax across each of the two dimensions:
+    \[
+    \widehat{y}_{\mathrm{txt}\,i\,\to\,\mathrm{img}\,j}\,=\,
+    \frac
+    {\exp\left(\ip{E_{\mathrm{txt}}(T_i)}{E_{\mathrm{img}}(I_j)}/\tau\right)}
+    {\sum_{k\in\text{batch}}
+    \exp\left(\ip{E_{\mathrm{txt}}(T_i)}{E_{\mathrm{img}}(I_k)}/\tau\right)
+    }
+    \]
+  </li>	 
+  <li>The loss: want each image to pick the right text and vice versa
+    \[-\sum_i\log  \widehat{y}_{\mathrm{txt}\,i\,\to\,\mathrm{img}\,i}\,-\,
+    \sum_i\log  \widehat{y}_{\mathrm{img}\,i\,\to\,\mathrm{txt}\,i}
+    \]
+  </li>	 
+</ul>  
+
+</section>
+
+<section>
+  <h2 class="slide-title">CLIP as pre-training</h2>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Once train both encoders, can use each as a feature extractor for the corresponding modality (images or text)
+	</li>
+      <li class="fragment" data-fragment-index="1">But also get a free "zero-shot" classifier for, e.g., ImageNet
+      </li>
+      <li class="fragment" data-fragment-index="2">
+	In fact can classify into arbitrary categories!
+      </li>
+  </ul>	 
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="1" src="img/vlm/clip-classifier.svg" height="500px">
+      
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:50%;">
+    <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:400px;">
+      <img class="fragment" data-fragment-index="2" src="img/vlm/belize.png">
+      <img class="fragment" data-fragment-index="3" src="img/vlm/studio.png">
+      <img class="fragment" data-fragment-index="4" src="img/vlm/sat.png">
+      <img class="fragment" data-fragment-index="5" src="img/vlm/lymph.png">
+    </div>
+    
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Any information about the visual meaning of the text is captured from the (noisy) associations in the training data
+      	</li>
+	<li class="fragment" data-fragment-index="4">Presumably, the training data contains all kinds of images, including remote sensing, medical images, spectrograms, etc.
+      	</li>
+	<li class="fragment" data-fragment-index="4">Original CLIP trained on 400M image/text pairs; current models, including open source,  trained on billions.
+	</li>
+</ul>  
+   </div>
+</div> <!-- minipage container -->
+
+
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">LLaVa</h2>
+  <ul>
+    <li>Language models are "blind": they only receive text as input
+    </li>
+    <li>Visual Instruction Tuning, Liu et al., 2023: introduces LLaVa (Large Language and Vision Assistant)
+    </li>  
+    <li>Main idea: connect visual encoder to an LM by mapping its tokens into thelanguage embedding space
+    </li>
+  </ul>	 
+    <div class="minipage-container" style="align-items: center;">
+      <div class="minipage" style="width:45%;">
+    	<ul>
+	  <li class="fragment" data-fragment-index="1">Train the projection matrix $\mathbf{W}$; can also fine-tune the entire architecture
+	  </li>
+	  <li class="fragment" data-fragment-index="1">Creating new (real valued) language embeddings, but not new discrete tokens
+	  </li>
+	</ul>  
+	<img src="img/vlm/llava-model.svg" height="350px">
+      </div>
+    <div class="minipage" style="width:55%;">
+      <img class="fragment" data-fragment-index="2" src="img/vlm/llava-gpt-instructions.svg" height="600px">
+
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li class="fragment" data-fragment-index="2">Use strong LM (ChatGPT) to create instruction-following data; feed it information about images from annotations and object bounding boxes (use data with ground truth)
+  </li>	 
+</ul>  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Foundation models</h2>
+  <ul>
+    <li>What is a foundation model? <span class="fragment" data-fragment-index="1">No clear definition but some features seem to be implied:</span>
+    </li>
+    <li class="fragment" data-fragment-index="1">It serves as a <span data-alert="3">useful</span> feature extractor for a wide range of tasks it was not trained on
+      <ul>
+	<li class="fragment" data-fragment-index="3">"Useful" means easily adapted. Could mean zero-shot application (no new training), or "few-shot"  adaptation -- linear probing or at most light (LoRA?) fine-tuning
+      	</li>
+	<li class="fragment" data-fragment-index="3">Must not require "a lot" of data and/or compute
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="4">It is pre-trained at large scale (which implies no explicit supervision)
+    </li>
+    <li class="fragment" data-fragment-index="5">An influential position paper: On the Opportunities and Risks of Foundation Models, [many authors], 2022
+    </li>  
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+      <img class="fragment" data-fragment-index="5" src="img/meth/homogenization.jpeg" height="300px">
+      
+
+   </div>
+    <div class="minipage" style="width:60%;">
+      <img class="fragment" data-fragment-index="6" src="img/meth/foundation-model.jpeg" height="600px">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+<section data-section="Visualization">
+  <h2 class="slide-title">Interpreting the features</h2>
+  <ul>
+    <li>A big dream: "understanding" what the models learned and/or why they make a certain prediction 
+    </li>
+    <li>Path A: with the advent of LLMs, can try to make the model explain its operation in plain natural language (English), <span data-alert="1"> in a way that reflects the real answers</span>
+      <ul>
+	<li class="fragment" data-fragment-index="1">Good luck.
+	</li>
+      </ul>
+
+    </li>
+    <li class="fragment" data-fragment-index="2">Path B: rely solely on testing; design careful benchmarks and metrics that capture different aspects of model's behavior.
+      <ul>
+	<li class="fragment" data-fragment-index="3">OK, but limited to what we can think of and usually a single number r at most a few; and no metric is perfect.
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="4">Path C: design methods to visualize (for human consumption) the inner mechanisms of the models. Try to get an intuition on what the models capture and, perhaps, ideas for improved new models and for creative uses of the existing ones.
+    </li>  
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">Visualizing weights</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:45%;">
+      <ul>
+
+      <li>Plausible to visualize weights for a linear classifier; each weight represents a "preference" for R, G or B value at a given location
+
+      </li>
+      <li class="fragment" data-fragment-index="1">We can rearrange the weights back into a three-channel "image" and display as images
+      </li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:55%;">
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:600pxcm;">
+	<img src="img/vis/cifar-grid.jpeg">
+	<img src="img/vis/img-weights-rgb.jpeg">
+
+      </div> <!-- tabular -->
+    </div>
+</div> <!-- minipage container -->
+
+
+
+<figure class="attributed-img fragment" data-fragment-index="1" data-attrib="images on this slide: cs231n.stanford.edu">
+  <img src="img/vis/cifar-weights-vis.jpeg" height="160px">
+</figure>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Can do this for the 1st layer in a convnet
+	</li>  
+	<li class="fragment" data-fragment-index="5">Becomes infeasible once we have multi-layer network; need to look at activations instead?
+	</li>  
+      </ul>	 
+
+   </div>
+   <div class="minipage" style="width:45%;">
+     <div class="tabular tabular--grid two-row-captions proportional-fit"
+	  style="--cols:3; --col-gap:.6em; --row-gap:.35em; 
+		 --img-height:200px;">
+       <img class="fragment" data-fragment-index="2" src="img/vis/alexnet-1st.jpeg">
+       <span class="caption fragment" data-fragment-index="2">AlexNet, 1st layer<br>64 3x11x11 filters</span>
+       <img class="fragment" data-fragment-index="3" src="img/vis/resnet-1st.jpeg">
+       <span class="caption fragment" data-fragment-index="3">ResNet-18, 1st layer<br>64 3x7x7</span>
+       <img class="fragment" data-fragment-index="4" src="img/vis/resnet-101-1st.jpeg">
+       <span class="caption fragment" data-fragment-index="4">ResNet-101, 1st layer<br>64 3x7x7</span>
+     </div> <!-- tabular -->
+
+
+   </div>
+</div> <!-- minipage container -->
+
+  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Class saliency maps</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Simonyan et al., Deep Inside Convolutional Networks: Visualising
+	  Image Classification Models and Saliency Maps (2014)
+	</li>
+	<li><span data-click="enlarge" style="--enlarge-scale:1.0">Recall<template data-role="pop"> <img src="img/ml/backprop-back-page7.svg" height="400px">
+	</template></span>: we can backprop from the network output to the input pixels, computing $\nabla_{\vx}f_c(\vx;\btheta)$ where $f_c$ is the logit for class $c$ (or some <span data-click="enlarge" style="--enlarge-scale:1.0">other<template data-role="pop">  Why not backprop from the loss, or the ground truth label? Recall: we want to know what the network learned, not what it <i>should</i> learn.</template></span> scalar quantity of interest) computed by the network with parameters $\btheta$.
+	</li>
+	<li>Method: take the logit of the highest-scoring class (i.e., network's prediction), backprop to pixels, compute the "heat map" of the per-pixel derivative (take max over color channels)
+      	</li>
+	<li class="fragment" data-fragment-index="1">Can extract class-specific segmentation maps (sort of)
+	</li>
+      </ul>	 
+      <img class="fragment" data-fragment-index="1" src="img/vis/deep-inside-seg-sel.jpg" height="340px">
+
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/vis/deep-inside-saliency-full.jpeg">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Stimulus optimization</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li>Since we can get $\nabla_x f_c(\vx)$ why not run gradient descent <i>on the image</i>?
+	</li>
+	<li>(same paper) solve
+	  \[\argmax{\vx}\,\left\{f_c(\vx;\btheta)\,-\,\lambda\eucnorm{\vx}^2\right\}\]
+	  where we reguralize to avoid hyper-saturated pixels
+	</li>
+	<li class="fragment" data-fragment-index="1">A minor <span data-click="enlarge" style="--enlarge-scale:1.0">craze<template data-role="pop">Wikipedia: "The cited resemblance of the imagery to LSD- and psilocybin-induced hallucinations is suggestive of a functional resemblance between artificial neural networks and particular layers of the visual cortex."</template></span> ca. 2014: Deep Dream Art
+	</li>
+      </ul>
+      <figure class="attributed-img fragment" data-fragment-index="1" data-attrib="source:Wikipedia">
+	<img src="img/vis/deepdream-mona-lisa.jpg" height="500px">
+      </figure>
+
+   </div>
+    <div class="minipage" style="width:45%;">
+      <img src="img/vis/deep-inside-deepdream.png" height="1000px">
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Stimulus selection</h2>
+  <ul>
+    <li>Perhaps a safer path: instead of maximizing stimulus, look at real stimuli (images) and find examples in the data that "excite" a particular unit.
+    </li>
+    <li>We can now try to understand what a particular unit is "detecting"
+    </li>
+    <li>For each conv <span data-click="enlarge" style="--enlarge-scale:1.0">unit<template data-role="pop">  In the real (bio) neural network, each receptive field would have a different unit responsible; in convnets, we reuse units</template></span>, find the highest activations (i.e., images/locations within image) in a large pool of images
+    </li>  
+    
+  </ul>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:1; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:600px;">
+    <img src="img/vis/rcnn-pool5.png">
+    <span class="caption">From RCNN: activation values are normalized (divided by the max activation for the unit anywhere in the data evaluated)
+  </div> <!-- tabular -->
+
+  <ul>
+    <li>My favorite approach; proposed first in Rich feature hierarchies for accurate object detection and semantic segmentation, Girshick et al. (2013)
+    </li>  
+</ul>  
+</section>
+
+<section>
+  <h2 class="slide-title">Interpretable visualization?</h2>
+  <ul>
+    <li>What can we learn from this?
+    </li>  
+  </ul>
+
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:700pxcm;">
+    <img src="img/vis/rcnn-units-top.png">
+    <img src="img/vis/rcnn-units-bottom.png">
+  </div> <!-- tabular -->
+  
+</section>
+
+
+<section>
+  <h2 class="slide-title">Class Activation Maps</h2>
+  <ul>
+    <li>Learning Deep Features for Discriminative Localization, Zhou et al. (2015)
+    </li>
+    <li>Only works for the last conv layer, and only when the following layer is the last one (linear classifier)
+    </li>  
+    <li>Consider global average pooling: it's a linear operation on the tensor which is the output of the last conv layer. The classifier is also linear.  
+    </li>
+  </ul>	 
+    <div class="minipage-container" style="align-items: center;">
+      <div class="minipage" style="width:60%;">
+	<ul>
+	  <li class="fragment" data-fragment-index="1">We can push the weights back to each channel of the conv output, multiplying by normalized "heat maps" of that channel
+	  </li>  
+     	</ul>
+	<img src="img/vis/cam-scheme.png" height="600px">      
+
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:1; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:400pxcm;">
+	<img class="fragment" data-fragment-index="2" src="img/vis/brushing.jpeg">
+	<span class="caption fragment" data-fragment-index="2">Brushing teeth</span>
+	<img class="fragment" data-fragment-index="2" src="img/vis/cutting.jpeg">
+	<span class="caption fragment" data-fragment-index="2">Cutting trees</span>
+      </div> <!-- tabular -->
+   </div>
+</div> <!-- minipage container -->
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Grad-CAM</h2>
+  <ul>
+    <li>A more general approach: pick any layer with output (activations) $X\in\mathbb{R}^{H\times W\times C}$
+    </li>
+    <li>Compute the gradient $\nabla_X f_c(\vx;\btheta)$ (backprop, stop at $X$); the gradient is itself in $\mathbf{R}^{H\times W\times C}$
+    </li>
+    <li class="fragment" data-fragment-index="1">Global average pooling <i>of the gradient</i> gives weights $\balpha\in\mathbb{R}^C$
+    </li>
+    <li class="fragment" data-fragment-index="2">The Grad-CAM map $\in\mathbb{R}^{H\times W}$ is
+      \[M_{h,w}\,=\,\operatorname{ReLU}\left(\sum_j\alpha_jX_{h,w,j}\right)\]
+      where $X_{h,w,j}$ is the $j$-th channel activation at position $(h,w)$
+    </li>
+    <img class="fragment" data-fragment-index="2" src="img/vis/grad-cam-example.jpeg" height="500px">
+
+  </ul>	 
+</section>
+
+
+
+
+
+
+      </div> <!-- slides  -->
+    </div> <!-- reveal  -->
+
+
+
+    <!-- Reveal + plugins -->
+    <script src="../../reveal/dist/reveal.js"></script>
+    <!-- <script src="../../reveal/mathjax/es5/tex-chtml-full.js"></script> -->
+    <script src="../../reveal/plugin/math/math.js"></script>
+    <script src="../../mathmacros.js"></script>
+    <script> //local macros go below
+     Object.assign(window.MJ_MACROS, {
+       dmodel: ['d_{\\mathrm{model}}'],
+       dhead: ['d_{\\text{head}}'],
+       BOS: ['\\mathrm{[BOS]}'],
+       EOS: ['\\mathrm{[EOS]}'],
+       dkl: ['D_{KL}\\left(#1\\,\\lvert\\,#2\\right)',2],
+     });
+    </script>
+    <!-- <script src="../../plotly.min.js"></script> -->
+
+    <script src="../../highlight/highlight.min.js"></script>
+    <script src="../../reveal/plugin/highlight/highlight.js"></script>
+
+    <script src="../../script.js"></script>
+    <script src="../../visitedSlideManager.js"></script>
+    <script src="../../effects.js"></script>
+
+    <!-- <script src="../../embed.js" defer></script> -->
+
+    <script>
+     Reveal.initialize({
+       width: 1920,   // e.g., for 16:10
+       height: 1200,  // e.g., for 16:10
+       margin: 0.01,   // whitespace around content
+       center:false,
+       hash: true,
+       controls: false,
+       plugins: [ RevealMath.MathJax3, RevealHighlight ],
+
+       // The ONLY MathJax v3 config Reveal will pass through:
+       mathjax3: {
+       	 // tell the plugin to use your local build (since you removed the manual tag)
+       	 mathjax: '../../reveal/mathjax/es5/tex-chtml-full.js',
+       	 chtml: {
+	   matchFontHeight: false,  // stop per-paragraph x-height scaling
+	   scale: 1,                // keep math at the same CSS size as text
+	   mtextInheritFont: true   // make \text{} use your body font
+      	 },
+	 tex: {
+           inlineMath: [['$', '$'], ['\\(', '\\)']],
+           displayMath: [['$$', '$$'], ['\\[', '\\]']],
+           packages: {'[+]': ['cases','empheq','color','base','boldsymbol','upgreek','ams','newcommand','noerrors','noundefined','html']},
+           macros: window.MJ_MACROS                // <-- your macros land here
+       	 },
+       	 loader: { load: ['[tex]/cases','[tex]/empheq','[tex]/color','[tex]/boldsymbol','[tex]/upgreek','[tex]/html'] },
+
+	 // make sure your slide JS can run AFTER MathJax’s initial typeset
+	 startup: {
+           ready: () => {
+             MathJax.startup.defaultReady();
+             // (re)bind any math-dependent effects here
+             if (window.bindClickEffects) window.bindClickEffects(document);
+           }
+       	 }
+       }
+
+     });
+
+     // also re-bind when slides change (MathJax output is already in the DOM by then)
+     Reveal.on('ready',  () => window.bindClickEffects?.(Reveal.getCurrentSlide()));
+     Reveal.on('slidechanged', e => window.bindClickEffects?.(e.currentSlide));
+
+    </script>
+
+
+
+  </body>
+</html>

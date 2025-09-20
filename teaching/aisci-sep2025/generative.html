@@ -1,0 +1,1376 @@
+<!-- -
+     sampling vs density
+     model misspecification
+     parametric: Gaussian, MoG, MoPPCA
+
+
+-->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AI for Scientists Deep Dive</title>
+    <!-- if want subtitle: uncomment -->
+    <template id="subtitle">Generative models</template>
+    <template id="date">September 2025</template>
+
+    <link rel="icon" type="image/png" sizes="64x64" href="../../icons/rjs.png">
+    <link rel="stylesheet" href="../../reveal/dist/reveal.css">
+    <link rel="stylesheet" href="../../reveal/fonts.css">
+    <link rel="stylesheet" href="../../reveal-style.css">
+    <link rel="stylesheet" href="../../custom.css">
+    <link rel="stylesheet" href="../../effects.css">
+    <link rel="stylesheet" href="../../footer.css">
+    <link rel="stylesheet" href="../../tikz.css">
+    <link rel="stylesheet" href="../../highlight/styles/github.min.css">
+
+    <style>
+     :root {
+       --pop-fg: #005eb8;
+       --pop-bg: #edea85;
+       --pop-font-base:3rem;
+     }
+     .caption { font-size: 0.6em;}
+     body, .reveal {
+       font-family: 'ComputerModernSans', sans-serif;
+       font-size: 42px;
+       color: navy;
+       backgrounw: white;
+     }
+
+     .reveal .controls {
+       display: none !important;
+     }
+    </style>
+  </head>
+  <body>
+
+
+    <div class="reveal">
+      <div class="slides">
+
+<section id="title-slide" class="nofooter" data-section=" ">
+  <h1 id="doc-title" class="title"></h1>
+  <h1 id="doc-subtitle" class="subtitle"></h1>
+  <div class="title-row">
+    <div id="doc-author" class="author">Greg Shakhnarovich</div>
+    <img src="../../ttic-logo-full.png" alt="Institution logo" class="logo">
+  </div>
+  <div id="doc-date" class="date"></div>
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Review: generative models</h2>
+  <ul>
+    <li>Main dichotomy:
+      <ul>
+	<li class="fragment" data-fragment-index="1">Models that can compute explicit $p(\vx)$ -- exact or approximate; sometimes called "<span data-click="enlarge" style="--enlarge-scale:1.0">likelihood<template data-role="pop">A bit of a misnomer: the likelihood function is a parametric model for density (or probability distribution) $p(\vx;\btheta)$ taken as a function of $\btheta$; it measures how well the model explain the data. With generative models we usually are interested in how well a particular data sample is explained by the model. </template></span> model"
+      	</li>
+	<li class="fragment" data-fragment-index="2">Models that do not compute $p(\vx)$ but allow sampling from $p(\vx)$
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="3">Another axis:
+      <ul>
+	<li>Exact: sampling from the exact $p(\vx)$ under the model
+      	</li>
+	<li>Approximate: sampling from an approximation of $p(\vx)$
+      	</li>
+	<li>In both cases, model's $p(\vx)$ is not the "real" data distribution, if such a thing even exists
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="4">Another use of generative models: to help discrimination. Bayes rule:
+      \[p(\vx,\vy)\,=\,p(\vx)\pc{\vy}{\vx}\,=\,p(\vy)\pc{\vx}{\vy}
+      \class{rj-hide-0-4}{
+      \quad\Rightarrow\quad
+      \pc{\vy}{\vx}\,=\,\frac{\pc{\vx}{\vy}p(\vy)}{
+      \class{rj-blur-5-}{
+      p(\vx)
+      }
+      }
+      }
+      \class{rj-hide-0-5}{\,\propto\, \pc{\vx}{\vy}p(\vy)}
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="6">So if we have the <i>conditional</i> generative model for which we can estimate likelihood, we can invert it to give us a discriminator
+    </li>
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="5" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="6" aria-hidden="true"></span>
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">VAEs as generators</h2>
+  <ul>
+    <li>A significant achievement at the time: 2017
+    </li>
+    <img src="img/ae/vae-recon-han-et-al.png">
+
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Conditional VAE</h2>
+  <ul>
+    <li>Key requirements for most practical uses of generative models: <i>controllable</i> generation
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+
+      <ul>
+	<li>In a VAE, both encoder and decoder become conditioned on $\vy$
+	</li>
+	<li>Simplest example: category level control (generate image of type $y$)
+
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/ae/cvae.svg" height="200px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <figure class="attributed-img fragment" data-attrib="Images: Isaac Dykeman" data-fragment-index="1">
+  <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:550px;">
+    <img class="fragment" data-fragment-index="1" src="img/ae/dykeman/vae_decoder_diagram.svg">
+    <img class="fragment" data-fragment-index="2" src="img/ae/dykeman/encoder_vae_diagram.svg">
+    <img class="fragment" data-fragment-index="3" src="img/ae/dykeman/kl_divergence_diagram.svg">
+    <img class="fragment" data-fragment-index="4" src="img/ae/dykeman/vae_diagram.svg">
+    <img class="fragment" data-fragment-index="5" src="img/ae/dykeman/cvae_diagram.svg">
+    <img class="fragment" data-fragment-index="6" src="img/ae/dykeman/cvae_generation_diagram.svg">
+
+  </div>
+  </figure>  
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Autoregressive models for images</h2>
+  <!-- - pixel-rnn, -cnn -->
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+
+      <ul>
+	<li>We can impose an <span data-click="enlarge" style="--enlarge-scale:1.0">order<template data-role="pop">Actually each pixel is a vector of (
+	  <span style="color:red">R</span>
+	  <span style="color:green">G</span>
+	  <span style="color:blue">B</span>) colors, so we need to also impose order there:
+	  \[p(RGB|\cdot)\,=\,p(\textcolor{red}{R}|\cdot)p(\textcolor{green}{G}|\textcolor{red}{R},\cdot)p(\textcolor{blue}{B}|\textcolor{red}{R},\textcolor{green}{G},\cdot)\]</template></span> on the pixels (e.g., raster) and set up
+	  \[p(\vx)\,=\,\sum_{i,j}\pc{x_{i,j}}{\{x_{\le i,\lt j}\}}
+	  \]
+
+      	</li>
+	<li>Lots of efforts in 2000s with random fields
+	</li>
+	<li>Early (modern) attempts used LSTM
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/gen/pixe-cnn-rnn-arches.svg" height="300px">
+
+    </div>
+  </div> <!-- minipage container -->
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="1">PixelCNN: use convolutions, with cleverly constructed masking
+	</li>
+	<li class="fragment" data-fragment-index="1">To make the receptive field larger, make the convnet deep, and use gates (similar to LSTM)
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="1" src="img/gen/pixel-cnn.svg" height="320px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Review: vector quantization</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Vector quantization (VQ): given a set of vectors $\mathcal{M}\,=\,\left\{\bmu_1,\ldots,\bmu_k\right\}$ in $\mathbb{R}^d$ (a <i>codebook</i> with $k$ codewords), any $\vx\in\mathbb{R}^d$ is assigned the index of the closest codeword,
+	  \[c^\ast(\vx)\,=\,\argmin{c} \eucnorm{\bmu_c-\vx}^2\]
+      	</li>
+	<li>
+	  Often the codebook is the output of <span data-click="enlarge" style="--enlarge-scale:1.6;--pop-top:85%">$k$-means clustering<template data-role="pop">The objective of $k$-means is to find a set of of codewords that minimize VQ (<span data-click="enlarge" style="--enlarge-scale:1">Euclidean<template data-role="pop"> Note that a different metric minimized by assignments will lead to a different algorithm and a different VQ solution</template></span>) reconstruction error:
+     	  \[(\bmu^\ast_1,\ldots,\bmu^\ast_k)\,=\,
+	  \argmin{\bmu_1,\ldots,\bmu_k}\sum_i\eucnorm{\vx_i-\bmu_{c^\ast(\vx)}}^2
+     	  \]
+	  It is (approximately) solved by the famous iterative Lloyd algorithm: guess initial $\bmu$s, then repeat until convergence:
+       	  <ol>
+	    <li>Compute $c^\ast(\vx_i)$ based on current $\bmu$s;
+	    </li>
+	    <li>For each $c$, recompute $\bmu_c$ as the mean of $\vx$s assigned to it
+	    </li>
+	  </ol>
+	  </template></span>
+      	</li>
+	<li class="fragment" data-fragment-index="1">Usually treated as a (discovered) structure in the data, but can also be used simply as means of (a) compression and (b) replacing continuous vector data with discrete integer indices
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <figure class="attributed-img" data-attrib="source: Qdrant">
+	<img src="img/gen/vq-qdrant.png" height="400px">
+      </figure>
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Suppose we have an embedding matrix for the codewords, i.e., $\bmu_c\in\mathbb{R}^d\,\to\,\mathbf{e}^c\in\mathbb{R}^\dmodel$. This is now like a tokenizer with an embedding layer.
+	</li>
+	<li class="fragment" data-fragment-index="3">Given some input $\vx$ we map it to a codeworkd $c=c^\ast(\vx)$, and then to $\mathbf{e}^c$. When we compute some (downstream) loss which is a function of $\ve^c$, we can backpropagate it to the codebook (although not to the assignments, which are discrete)
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:45%;">
+      <img class="fragment" data-fragment-index="3" src="img/gen/quantization.png" height="400px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">VQVAE</h2>
+  <img src="img/gen/vqvae-diagram.jpeg" height="500px">
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">VQVAE-2</h2>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;">
+    <img src="img/gen/vqvae-diagram.jpeg" style="--img-height:250px">
+    <img src="img/gen/vqvae-2-diagram.svg" style="--img-height:500px">
+    <span class="caption">VQVAE</span>
+    <span class="caption">VQVAE-2</span>
+  </div> <!-- tabular -->
+</section>
+
+<section>
+  <h2 class="slide-title">Digression: super-resolution</h2>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li>A long standing problem in computer vision: image <i>enhancement</i>: removing noise, removing blur, and increasing resolution, a.k.a. super-resolution
+	</li>
+	<li class="fragment" data-fragment-index="1">An ill-posed problem: infinitely manysolutions in high res explaining low res equally well
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img src="img/gen/enhance.gif" height="300px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="2">ML is promising because it can learn to infer more likely high res images!
+    </li>
+
+  </ul>
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">GAN: intuition</h2>
+  <ul>
+    <li>VAEs model the data distribution, by modeling the prior $q(\vz)$ and the decoder
+    </li>
+    <li>We learn this by training an encoder as well, <span data-alert="1">which we then discard</span>
+    </li>
+    <li class="fragment" data-fragment-index="1">What if we just learn a decoder $\mathcal{N}(\mathbf{0},\mathbf{1})\to p(\vx)$? <br>
+      <span class="fragment" data-fragment-index="2">We would need to tell whether a particular $\widehat{\vx}=E(\vz)$ is good under $p(\vx)$
+	<span class="fragment" data-fragment-index="3">Not clear how to do that, since we wouldn't know which training $\vx_i$ a randomly sampled $\vz$ corresponds to -- so can't learn by training to reconstruct!
+    </li>
+    <li class="fragment" data-fragment-index="4">It may be easier to tell whether a particular $\vx$ is good or not than to explicitly model $p(\vx)$
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+       	<li class="fragment" data-fragment-index="5">Set up a "two player game" with a <i>generator</i> $\textcolor{blue}{G}$ and a <i>discriminator</i> $\textcolor{red}{D}$
+	</li>
+	<li class="fragment" data-fragment-index="6">$\textcolor{blue}{G}$ takes $\vz\sim\mathcal{N}(\mathbf{0},\mathbf{1})$ and maps it to a $\vx$ (it's the "decoder")
+	</li>
+	<li class="fragment" data-fragment-index="7">$\textcolor{red}{D}$ tries to tell whether an example $\vx$ came from real data or from $\textcolor{blue}{G}$
+	</li>
+	<li class="fragment" data-fragment-index="7">$\textcolor{blue}{G}$ tries to fool $\textcolor{red}{D}$; $\textcolor{red}{D}$ tries not to be fooled
+	</li>
+	<li class="fragment" data-fragment-index="7">We will set it up as loss we can backprop from
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:350px;">
+     	<img class="fragment" data-fragment-index="5" src="img/gen/gan-diagram.svg">
+	<img class="fragment" data-fragment-index="7" src="img/gen/gan-diagram-with-arrows.svg">
+
+      </div>
+    </div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">GAN objective and training</h2>
+  \[
+  \min_{\textcolor{blue}{\btheta_G}}
+  \max_{\textcolor{red}{\btheta_D}}
+  \left\{\;
+  \Ep{\vx\sim p_{\mathrm{data}}}
+  {\log \textcolor{red}{D}\left(\vx;\,\textcolor{red}{\btheta_D}\right)}
+  \,-\,
+  \Ep{\vz\sim p(\vz)}
+  {\log \textcolor{red}{D}\left(\textcolor{blue}{G}\left(\vz;\,\textcolor{blue}{\btheta_G}\right);\,\textcolor{red}{\btheta_D}\right)}
+  \;\right\}
+  \]
+  <ul>
+    <li>A minimax objective; training alternates between gradient steps on $\textcolor{blue}{\btheta_G}$ and $\textcolor{red}{\btheta_D}$
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="1">Sample a batch of $\vz$ samples and generate images using the current $\textcolor{blue}{G}$;<br> add a batch of real images;<br> update $\textcolor{red}{\btheta_D}$ to increase the score of the real ones and decrease the score of the generated ones
+      	</li>
+	<li class="fragment" data-fragment-index="2">Sample a batch of $\vz$ samples and generate images;<br>update $\textcolor{blue}{\btheta_G}$ to increase the score of the generated images under the current  $\textcolor{red}{D}$
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="1" src="img/gen/gan-pseudocode.jpeg" height="520px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="3">GANs have a reputation of being difficult to train (unstable)
+    </li>
+    <li class="fragment" data-fragment-index="3">Lots of lore about training them, and lots of tricks that have been proposed over the years
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Evolution of GANs</h2>
+  <ul>
+    <li>First GAN results: 2014 (the original GAN paper)
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:35%;">
+      <ul>
+	<li>Each yellow box (right columns): the nearest training set neighbor of the sample next to it
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:65%;">
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:8cm;">
+	<img src="img/gen/cifar-gan-samples.jpeg">
+	<img src="img/gen/face-gan-samples.jpeg">
+	<span class="caption">CIFAR-10</span>
+	<span class="caption">Toronto Face Database</span>
+      </div> <!-- tabular -->
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="1">Steady progress into 2020 (and arguably beyond)
+    </li>
+  </ul>
+
+
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:3; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:500px;">
+    <img class="fragment" data-fragment-index="1" src="img/gen/dcgan-bedrooms-partial.jpg" height="400px">
+    <span class="caption fragment" data-fragment-index="1">DCGAN, 2016</span>
+
+    <img class="fragment" data-fragment-index="2" src="img/gen/progressive-gan-samples-bedrooms.jpeg" height="400px">
+    <span class="caption fragment" data-fragment-index="2">Progressive GAN, 2018</span>
+
+    <img class="fragment" data-fragment-index="3" src="img/gen/biggan-samples-paper.png">
+    <span class="caption fragment" data-fragment-index="2">BIGGAN, 2019</span>
+  </div> <!-- tabular -->
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Convolutional GANs</h2>
+  <img src="img/gen/dcgan-arch.jpeg" height="300px">
+
+  <ul>
+    <li>Generator: the random $\vz\in\mathbb{R}^{100}$ is projected to $\mathbb{R}^{16,384}$; the projection is reshaped to a $\mathbb{R}^{4\times4\times1024}$ to "jump-start" the convolutional stack
+    </li>
+    <li>Discriminator: the last conv layer of the network is flattened (into a vector), fed to a fully connected layer with a single sigmoid output
+    </li>
+    <li class="fragment" data-fragment-index="1">Better results; more importantly, improved training stability
+    </li>
+  </ul>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:400px;">
+    <img src="img/gen/dcgan-faces-partial.png">
+    <img src="img/gen/dcgan-imnet-partial.png">
+    <span class="caption">Faces (350k Internet images)</span>
+    <span class="caption">ImageNet</span>
+
+  </div> <!-- tabular -->
+</section>
+
+<section>
+  <h2 class="slide-title">Progressive GANs</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Main innovation: gradually "grow" the GAN along with the resolution of images it generates
+	</li>
+	<li>First convincing high-resolution face results
+      	</li>
+	<li>Decent results in various other categories (bikes, some animals, furniture)
+      	</li>
+	<li class="fragment" data-fragment-index="1">A separate GAN trained on each category (typically on 100k-200k examples)
+	</li>
+
+      </ul>
+
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/gen/prog-gan-diagram.svg" height="550px">
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:370px;">
+    <img src="img/gen/progressive-gans-lsun.jpeg">
+    <img src="img/gen/progressive-gan-samples.jpeg">
+
+    <span class="caption">LSUN categories, 256pix</span>
+    <span class="caption">Faces (new high quality dataset), 1024pix</span>
+  </div> <!-- tabular -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">BigGAN</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:80%;">
+      <ul>
+	<li>"Despite recent progress in generative image modeling, successfully generating
+	  high-resolution, diverse samples from complex datasets such as ImageNet remains
+	  an elusive goal. To this end, we train Generative Adversarial Networks at the
+	  largest scale yet attempted, and study the instabilities specific to such scale."
+	</li>
+	<li> Uses conditioning by appending class information to $\vz$ (and injecting it into classifier and discriminator
+	</li>
+	<li>Some bells and whistles, including partitioning the latent space, using "non-local" (learned) attention layers, etc.
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:20%;">
+      <img src="img/gen/biggan-structure.svg" height="400px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="1">Results on some categories better than others
+	</li>
+      </ul>
+
+      <img class="fragment" data-fragment-index="1" src="img/gen/biggan-samples.png" height="170px">
+      <img class="fragment" data-fragment-index="1" src="img/gen/biggan-samples-2.jpeg" height="280px">
+
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="2" src="img/gen/biggan-good-bad.png">
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Conditional GANs</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Generator: the class label is embedded into a vector, which is concatenated or added (element-wise) to the latent input $\vz$
+	</li>
+	<li>Discriminator: the class label embedding is added (concat or sum) at the end, once the hidden layer output is flattened (note: it could also be replicated into a tensor and added to a conv layer output!)
+      	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img" data-attrib="Mirza & Osindero, 2014">
+	<img src="img/gen/conditioning.png" height="400px">
+      </figure>
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li>The output of the discriminator is still a single sigmoid score for "real/fake" <i>for the given class</i>
+    </li>
+    <li class="fragment" data-fragment-index="1">Obvious question: what if we want more complex conditioning/control?
+      <ul>
+	<li>More than a single object in the image, with a specified layout?
+	</li>
+	<li>Articulation/pose for people or animals?
+	</li>
+	<li>Properties besides category label, e.g., season, lighting, etc.?
+	</li>
+      </ul>
+    </li>
+  </ul>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Evaluating generated images: FID score</h2>
+  <ul>
+    <li>Ideally, you have a downstream task which you use the generated images for, and can evaluate how different generative models affect the end results.
+    </li>
+    <li>Most common standalone metric: Frechet Inception Distance, or FID [score]
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <img src="img/gen/fid-scheme.svg" height="600px">
+
+    </div>
+    <div class="minipage" style="width:45%;">
+      <ul>
+	<li>Incepttion-V3: a particular network from Google ca. 2016, trained on ImageNet (1000 categories, 1.3M images)
+	</li>
+      </ul>
+    </div>
+  </div> <!-- minipage container -->
+
+
+  <ul>
+    <li>Frechet distance (equivalent to Earth Mover's distance) between $\mathcal{N}(\bmu_r,\bSigma_r)$ and $\mathcal{N}(\bmu_g,\bSigma_g)$:
+      \[\mathrm{FID}(\bmu_r,\bSigma_r,\bmu_g,\bSigma_g)\,=\,\eucnorm{\bmu_r-\bmu_g}
+      \,+\,
+      \operatorname{Tr}\left(
+      \bSigma_r+\bSigma_g-2(\bSigma_r\bSigma_g)^{\tfrac{1}{2}}
+      \right)
+      \]
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Evaluating generated images: LPIPS</h2>
+  <img src="img/gen/lpips-motivation.png" height="350px">
+  <ul>
+    <li>Learned Perceptual Image Patch Similarity
+      (LPIPS): trained to match human judgments of patch similarity
+    </li>
+    <li>Relies on features extracted by pretrained networks (the most common variant uses AlexNet), with tuned linear weights
+    </li>
+  </ul>
+  <img src="img/gen/lpips-scheme.png" height="350px">
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">ViTVQGAN</h2>
+  <img src="img/gen/vitvqgan-diagram.jpeg" height="600px">
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Modern autoregressive image models</h2>
+  <img src="img/gen/parti-diagram.jpeg" height="600px">
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">TiTok embeddings</h2>
+  <ul>
+    <li>Introduce 32 special tokens that serve as decoding bottleneck
+    </li>
+  </ul>
+  <img src="img/gen/titok-diagram.png" height="800px">
+</section>
+
+<section>
+  <h2 class="slide-title">Diffusion models: denoising intuition</h2>
+  <ul>
+    <li>Recall denoising autoencoders: the latent captures the "essence of the image" without the noise (so we can reconstruct)
+    </li>
+    <li>Now let's consider a gradual corruption process: add a bit of noise at a time
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img" data-attrib="Most diffusion-related figures from
+		     https://medium.com/@steinsfu/stable-diffusion-clearly-explained-ed008044e07e">
+	<img src="img/diff/diffusion-fw-bk.webp" height="500px">
+      </figure>
+
+    </div>
+    <div class="minipage" style="width:50%;">
+
+      <ul>
+	<li>Let $\vx_0$ be the (clean) image; sample $\bepsilon\sim\mathcal{N}(\mathbf{0},\mathbf{1})$
+	  \[\vx_t\,=\,\class{rj-strike-1-}{\style{--strike-angle:-8deg;--strike-thickness:12px;}{\vx_0+\sigma_t\bepsilon}}
+	  \class{rj-hide-0}{
+	  \sqrt{\quad\alpha_t}\vx_0\,+\,\sqrt{1-\alpha_t}\bepsilon
+	  }
+   	  \]
+	  <span class="fragment" data-fragment-index="1">where $\alpha_t$ are chosen so the variance is preserved through the forward pass $\sigma_1,\ldots,\sigma_T$</span>
+	</li>
+      </ul>
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+
+    <li class="fragment" data-fragment-index="2">By the time we get to $T$th step, it's basically just the noise
+    </li>
+    <li class="fragment" data-fragment-index="2">Goal: train a neural network to reverse this process
+    </li>
+    <li class="fragment" data-fragment-index="2">Network architecture: U-Net! (recall other image-to-image applications). How do we train it?
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Training diffusion models</h2>
+  <ul>
+    <li>Forward process: $\bepsilon\sim\mathcal{N}(\mathbf{0},\mathbf{1})$, $\vx_t\,=\,\sqrt{\quad\alpha_t}\vx_0\,+\,\sqrt{1-\alpha_t}\bepsilon$
+    </li>
+    <li>Basic reverse diffusion loss: train a network $\epsilon_\btheta$ that given noisy $\vx_t$ and the known <span data-click="enlarge" style="--enlarge-scale:1.0"><template data-role="pop"> What you really need is known $\sigma_t$ but usually we have a fixed schedule of $\sigma$s spanning [0,1], so $t$ is sufficient to look up the right $\sigma_t$ </template>noise level</span> $t$, predicts $\bepsilon$
+      \[\min_\btheta\Ep{t\sim[T],\vx_0\sim p_{\mathrm{data}},\bepsilon\sim\mathcal{N}(\mathbf{0},\mathbf{1})}{\eucnorm{\bepsilon\,-\,\epsilon_\btheta\left(\vx_0,t\right)}^2}
+      \]
+    </li>
+    <li>To sample from the expectation: pick the next training image $\vx_0$, draw $\bepsilon$ from the standard Gaussian (per pixel), pick random $t\in[T]$, perturb the noise with the right $\alpha_t$, and try to <span data-click="enlarge" style="--enlarge-scale:1.0">recover<template data-role="pop"> Earlier approaches had the objective of recovering the clean $\vx_0$ but today the common way is to predict $\bepsilon$</template></span> $\bepsilon$ <span data-click="enlarge" style="--enlarge-scale:1.0">from<template data-role="pop">  The time step $t$ is encoded into a vector (recall positional encoding) to make conditioning in the network easier. <img src="img/diff/conditioning.jpeg" height="300px">
+    </template></span> $\vx_t$, $t$
+    </li>
+  </ul>
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:600px;">
+    <img src="img/diff/ddpm-training-protocol.webp">
+
+    <img src="img/diff/ddpm-training-examples.webp" class="fragment" data-fragment-index="1">
+  </div> <!-- tabular -->
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Sampling from diffusion models</h2>
+  <ul>
+    <li>Recall: the model has seen $\vx_T$ which are indistinguishable from random noise
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>DDPM (Denoising Diffusion Probabilistic Model) sampling: Start with $\vx_T$ (truly random); estimate $\bepsilon$ from $\vx_T$, $t$
+      	</li>
+	<li class="fragment" data-fragment-index="1">Use the estimated $\bepsilon$ to "denoise" a bit to $\vx_{T-1}$
+      	</li>
+	<li class="fragment" data-fragment-index="2">Continue until $\vx_0$ is obtained after <span data-pulse="3" data-alert="3">$T$</span> steps
+      	</li>
+	<li class="fragment" data-fragment-index="3">Typically, to get good results $T=1000$; this is pretty expensive!
+      	</li>
+	<li class="fragment" data-fragment-index="3">DDIM (Denoising Diffusion Implicit Models): same training, sampling can be <span data-click="enlarge" style="--enlarge-scale:1.0; --pop-max-width=70vw;--pop-width=800px">done<template data-role="pop">  Main idea in DDIM: make the diffusion process non-Markovian
+	  <div class="tabular tabular--grid two-row-captions proportional-fit"
+	       style="--cols:3; --col-gap:.6em; --row-gap:.35em;
+		      --img-height:7cm;">
+	    <img src="img/diff/ddpm-markovian.svg">
+	    <img src="img/diff/ddim-non-markovian.svg">
+	    <img src="img/diff/ddim-accel.svg">
+	    <span class="caption">DDPM (Markovian)</span>
+	    <span class="caption">DDIM (non-Markovian)</span>
+	    <span class="caption">DDIM accelerated sampling</span>
+	  </div> <!-- tabular -->
+	</template></span> with 30-50 steps to match the DDPM 1000-step quality
+      	</li>
+	<li class="fragment" data-fragment-index="4">Each step is pretty costly: run an image-size input through a network to get an image-size output.
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/diff/ddpm-sampling-protocol.webp" height="900px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Diffusion sampling: intuition</h2>
+  <ul>
+    <li>The higher $t$ (noise level) the wider the possibilities of what the image might be
+    </li>
+    <img src="img/diff/lana-diff-trajectories.jpeg">
+    <li class="fragment" data-fragment-index="1">Multiple "phases" (although without clear boundaries): very high $t$ = (almost) anything possible; medium $t$ = maybe clear where it's going but need to determine many details; low $t$ = traditional denoising (refine high frequency details)
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Diffusion models as latent space models</h2>
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Diffusion models as score matching</h2>
+  <ul>
+    <li>Recall: the <i>score</i> of the density $p(\vx;\btheta)$ is $\nabla_{\textcolor{red}{\vx}}p(\vx;\btheta)$
+    </li>
+    <li>The score tells us where to go to increase $p(\vx)$
+    </li>
+    <div class="tabular tabular--grid two-row-captions proportional-fit"
+	 style="--cols:3; --col-gap:.6em; --row-gap:.35em;
+		--img-height:400px;">
+      <img src="img/diff/score_contour.jpg">
+      <img src="img/diff/langevin.gif">
+      <img src="img/diff/pitfalls.jpg" class="fragment" data-fragment-index="1">
+      <span class="caption">Mixture of 2 Gaussians</span>
+      <span class="caption">Langevin dynamics</span>
+      <span class="caption fragment" data-fragment-index="1">A pitfall: low density regions</span>
+
+
+    </div> <!-- tabular -->
+    <li class="fragment" data-fragment-index="1">To deal with inaccurate score estimates, we can add noise to $p(\vx)$; more variance = more smoothing = less low-density
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img fragment" data-fragment-index="2" data-attrib="Images this slide: Yang Song">
+	<img src="img/diff/ald.gif">
+      </figure>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Jointly estimate $\nabla_{\vx}p(\vx+\sigma_t\bepsilon)$ for all $\sigma_t$
+	</li>
+      </ul>
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Diffusion models as SDE solvers</h2>
+  <ul>
+    <li>If we pretend that $t$ is continuous, we have a (stochastic) differential equation describing the trajectory of  forward (and a corresponding one, of the backward) process in diffusion noise perturbation
+    </li>
+    <div class="tabular tabular--grid two-row-captions proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		--img-height:340px;">
+      <img src="img/diff/sde-forward.gif">
+      <img src="img/diff/sde-backward.gif">
+
+    </div> <!-- tabular -->
+    <li>The reverse SDE involves the (estimated) score to compute the trajectory
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img fragment" data-fragment-index="2" data-attrib="Images this slide: Yang Song">
+	<img src="img/diff/sde_schematic.jpg" height="400px">
+      </figure>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">An even simpler interpretation: the diffusion sampling process is a gradient descent on $p(\vx)$ where $\epsilon_\btheta(\vx_t,t)$ has learned to estimate the gradient (score)
+	</li>
+      </ul>
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Conditioning: classifier guidance</h2>
+  <ul>
+    <li>If we want to sample $\vx|y$ (e.g., category), can train per-class model
+    </li>
+    <li>If we want a single model: use <i>classifier guidance</i>. Train a classifier estimating $\pc{y}{\class{rj-alert-1}{\vx_t\class{rj-blur-2-}{,t}}}$
+    </li class="fragment" data-fragment-index="1">Recall Bayes rule: $\pc{\vx_t}{y}\propto \pc{y}{\vx_t}p(\vx_t)$;
+    \[\begin{align}
+    \textcolor{Tan}{\log \pc{\vx_t}{y}}\quad&=&\quad
+    \textcolor{blue}{\log \pc{y}{\vx_t}}\quad&+&\quad
+    \textcolor{magenta}{\log p(\vx_t)}\,&+\,\mathrm{const}\\
+    \class{rj-hide-0-1}{
+    \textcolor{Tan}{\nabla_{\vx_t}\log\pc{\vx_t}{y}}
+    }
+    &\,
+    \class{rj-hide-0-1}{
+    =
+    }
+    &\,
+    \class{rj-hide-0-1}{
+    \textcolor{blue}{\nabla_{\vx_t}\log \pc{y}{\vx_t}}
+    }
+    &\,
+    \class{rj-hide-0-1}{
+    +
+    }
+    &\,
+    \class{rj-hide-0-1}{
+    \textcolor{magenta}{\nabla_{\vx_t}\log p(\vx_t)}
+    }
+    &
+    \end{align}
+    \]
+    <span class="fragment" data-fragment-index="1">$\textcolor{Tan}{\nabla_{\vx_t}\log\pc{\vx_t}{y}}$: conditional score function (the step we want)<br>
+      $\textcolor{blue}{\nabla_{\vx_t}\log \pc{y}{\vx_t}}$: guidance obtained from the classifier<br>
+      $\textcolor{magenta}{\nabla_{\vx_t}\log p(\vx_t)}$: the original (pre-trained) score of the (unconditional) diffusion model
+      <li class="fragment" data-fragment-index="2">To sample from category $y$: move the sample in the direction $\textcolor{magenta}{\nabla_{\vx_t}\log p(\vx_t)}\,+\,w\cdot\textcolor{blue}{\nabla_{\vx_t}\log \pc{y}{\vx_t}}$,<br>
+	where $w$ is the <i>classifier guidance weight</i>
+      </li>
+  </ul>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:360px;">
+    <img class="fragment" data-fragment-index="3" src="img/diff/cguid-1.jpeg">
+    <img class="fragment" data-fragment-index="4" src="img/diff/cguid-10.jpeg">
+    <span class="caption fragment"  data-fragment-index="3">$w$=1.0</span>
+    <span class="caption fragment"  data-fragment-index="4">$w$=10.0</span>
+  </div> <!-- tabular -->
+</section>
+
+<section>
+  <h2 class="slide-title">Classifier-free guidance</h2>
+  <ul>
+    <li>A much more common approach today: skip the classifier; train the condiional and unconditional models jointly
+      <ul>
+	<li>More precisely: train one model that can sample from both $\pc{\vx}{\vy}$ and $p(\vx)$
+	</li>
+      </ul>
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li class="fragment" data-fragment-index="1">Modify the model to accept conditioning
+	</li>
+	<li class="fragment" data-fragment-index="1">During training, with some probability, drop the conditioning (replace with "null", $\vy=\varnothing$)
+	</li>
+
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img class="fragment" data-fragment-index="1" src="img/diff/conditioning-y.png" height="230px">
+
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li class="fragment" data-fragment-index="2">Sampling: compute both
+      \[
+      \textcolor{blue}{\vs^\vy}\,=\,\epsilon_\btheta\left(\vx,\vy\right)\qquad\text{and}\qquad
+      \textcolor{magenta}{\vs^\varnothing}\,=\,\epsilon_\btheta\left(\vx,\varnothing\right)
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="2">Make the step
+      \[(1+w)\cdot\textcolor{blue}{\vs^\vy}\,-\,w\cdot\textcolor{magenta}{\vs^\varnothing}\]
+      i.e., steer from $p(\vx)$ towards $\pc{\vx}{\vy}$
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Classifier-free guidance and text</h2>
+  <ul>
+    <li>Initially, $y$ was a category<br>
+      <img src="img/diff/cfg-malamute.jpeg" height="400px">
+
+    </li>
+    <li class="fragment" data-fragment-index="1">Today, $\vy$ can be class, text, layout map, edge map, etc.; as long as have a way to inject conditioning into $\epsilon_\btheta$, can train with mixed conditioning and use CFG for sampling
+    </li>
+    <li class="fragment" data-fragment-index="2">A still relevant form of classifier guidance: CLIP guidance (note: must fine-tune CLIP on noisy $\vx_t$s)
+    </li>
+    <li class="fragment" data-fragment-index="2">Note: using CFG double the cost of each sampling step
+    </li>
+    <li class="fragment" data-fragment-index="3">High $w$ often leads to over-saturated images. In practice, often need to clip the pixel range through sampling process
+    </li>
+  </ul>
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Latent space diffusion</h2>
+  <ul>
+    <li>Latent Diffusion Models (LDM): do the diffusion in a (lower-dim) latent space, then decode into the RGB image when done
+    </li>
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		--img-height:400px; align-items:center">
+      <img src="img/diff/ldm-sampling-cond.webp">
+      <img class="fragment" data-fragment-index="2" src="img/diff/ldm-ae.webp" style="--img-height:250px">
+
+    </div> <!-- tabular -->
+
+    <li class="fragment" data-fragment-index="1">How do we get the latent space and the decoder? <span class="fragment" data-fragment-index="2">Train an autoencoder!</span>
+    </li>
+  </ul>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+
+      <ul>
+
+	<li class="fragment" data-fragment-index="3">The U-Net now operates on the (much smaller) $\vz$s and not image-sized $\vx$; the entire diffusion model is trained on $\vz$
+	</li>
+
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="3" src="img/diff/ldm-diffusion.webp" height="400px">
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Stable diffusion</h2>
+  <ul>
+    <li>Probably the most widely used (open source) diffusion model (LDM)
+    </li>Accepts a variety of conditioning modes (embedded by mode-specific methods)
+
+    <div class="tabular tabular--grid two-row-captions proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		--img-height:400px;">
+      <img src="img/diff/ldm-cond.webp">
+      <img class="fragment" data-fragment-index="1" src="img/diff/ldm-sampling.webp" style="--img-height:300px">
+      <span class="caption">U-Net architecture</span>
+      <span class="caption fragment" data-fragment-index="1">Text-to-image sampling</span>
+    </div> <!-- tabular -->
+    <li class="fragment" data-fragment-index="2">Text: usually converted to tokens using a pre-trained model (BERT, CLIP, recently T5); conditioning used multi-headed attention
+    </li>
+    <li class="fragment" data-fragment-index="2">Other modes: specialized embeddings or concatenation with intermediate layer outputs
+    </li>
+
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">SD examples</h2>
+  <ul>
+    <li>SD models are typically trained on a subset of LAION, 400M -- 2B images with English captions
+    </li>
+  </ul>
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:1; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:400px;">
+    <img src="img/gen/ldm-out-text.png">
+    <span class="caption">The LDM paper, CVPR 2022</span>
+  </div> <!-- tabular -->
+  <ul>
+    <li class="fragment" data-fragment-index="1">SD XL (current version):  -- very good, <span data-click="enlarge" style="--enlarge-scale:1.0">not perfect<template data-role="pop"> <img src="img/gen/sd-failures.png">
+    </template></span>
+    </li>
+  </ul>
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:4; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:400pxcm;">
+    <img class="fragment" data-fragment-index="1" src="img/gen/sd-out-city.webp">
+    <img class="fragment" data-fragment-index="2" src="img/gen/sd-out-person.webp">
+    <img class="fragment" data-fragment-index="3" src="img/gen/sd-out-owls.webp">
+    <img class="fragment" data-fragment-index="4" src="img/gen/sd-out-bw.webp">
+
+  </div> <!-- tabular -->
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Google Imagen</h2>
+  <ul>
+    <li>Version 1: 2022; a real research paper, including detailed analysis
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:1; --col-gap:.6em; --row-gap:.35em; ">
+	<img src="img/diff/imagen-plots.jpeg">
+	<span class="caption">Varying guidance weight</span>
+      </div> <!-- tabular -->
+
+
+    </li>
+    <li class="fragment" data-fragment-index="1">Version 4 (current)
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:3; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:380px;">
+	<img class="fragment" data-fragment-index="1" src="img/diff/imagen-chameleon.webp">
+  	<img class="fragment" data-fragment-index="2" src="img/diff/imagen-bird.webp">
+	<img class="fragment" data-fragment-index="3" src="img/diff/imagen-flowers.webp">
+
+      </div> <!-- tabular -->
+
+    </li>
+  </ul>
+</section>
+
+
+
+
+<section>
+  <h2 class="slide-title">ControlNet</h2>
+  <ul>
+    <li>Recall pix2pix tasks, e.g., edge map to image
+    </li>
+    <li>ControlNet is a trainable "wrapper" around a pre-trained diffusion model, adapting it to such tasks (i.e., to conditioning on image-like maps)
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+     	<li>"Zero convolutions: 1x1 conv layers initialized (weights and biases) to zero
+     	</li>
+	<li>A bit like LoRA: learn an additive component (original weights are safe!)
+      	</li>
+
+	<li>Instead of low-rank, the regularization is via zero init and small learning rates
+	</li>
+      </ul>
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:360px; align-items:center">
+	<img class="fragment" data-fragment-index="1" src="img/diff/cnet-1st.png">
+	<img class="fragment" data-fragment-index="2" src="img/diff/cnet-bp.webp" style="--img-height:220px">
+	<span class="caption fragment" data-fragment-index="1">First step (forward)</span>
+	<span class="caption fragment" data-fragment-index="2">Backprop</span>
+      </div> <!-- tabular -->
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/diff/controlnet-arch.png">
+
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">ControlNet + Stable Diffusion</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Usually used together; CN conditioning is mapped (with a small trained adaptor net $\mathcal{E}$) to the latent space of
+	</li>
+	<img class="fragment" data-fragment-index="1" src="img/diff/cnet-sd-reverse.webp" height="600px">
+
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/diff/cnet-sd.webp">
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">ControlNet preprocessors</h2>
+  <ul>
+    <li>In principle each new type of conditioning requires a new (fine-tuned) model
+    </li>
+    <li class="fragment" data-fragment-index="2">Many control modes rely on automatic extraction of maps from images: edge detection<span class="fragment" data-fragment-index="3">, surface normal estimation</span><span class="fragment" data-fragment-index="4">, segmentation</span><span class="fragment" data-fragment-index="5">, pose estimation)</span>
+    </li>
+    <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:650px;">
+      <img class="fragment" data-fragment-index="1" src="img/diff/cnet-scribble.jpeg">
+      <img class="fragment" data-fragment-index="2" src="img/diff/cnet-canny.jpeg">
+      <img class="fragment" data-fragment-index="3" src="img/diff/cnet-normals.jpeg">
+      <img class="fragment" data-fragment-index="4" src="img/diff/cnet-seg.jpeg">
+      <img class="fragment" data-fragment-index="5" src="img/diff/cnet-pose.jpeg">
+    </div>
+    <li class="fragment" data-fragment-index="5">A widely used tool, and a large collection of open source fine-tuned models for different modes, called preprocessors or adaptors
+    </li>
+    <li class="fragment" data-fragment-index="5">Many models are trained with multiple modes at once
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Training ControlNet</h2>
+  <ul>
+    <li>Generally requires a lot less data than (pre)training the original SD model
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Can get plausible results with 1k images; great results with 100k or more
+      	</li>
+	<li class="fragment" data-fragment-index="1">"Sudden convergence": rapid onset of adherence to control conditioning
+	</li>
+	<li class="fragment" data-fragment-index="2">During training, drop the text prompt 50% of the time to promote learning visual semantics
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/diff/cnet-training-size.svg" height="370px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:400px;">
+    <img class="fragment" data-fragment-index="1" src="img/diff/cnet-sudden-conv.png">
+    <img class="fragment" data-fragment-index="2" src="img/diff/cnet-no-prompts.jpeg" style="--img-height:480px">
+    <span class="caption fragment" data-fragment-index="1">Sudden convergence</span>
+    <span class="caption fragment" data-fragment-index="2">No textual prompt</span>
+  </div> <!-- tabular -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Textual inversion</h2>
+  <img src="img/meth/inversion-teaser.jpg">
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">DreamBooth</h2>
+  <img src="img/meth/db-teaser.jpg">
+
+</section>
+
+
+
+
+
+<section>
+  <h2 class="slide-title">Adapting diffusion for image understanding</h2>
+  <ul>
+    <li>Ke at al., Repurposing Diffusion-Based Image Generators for Monocular Depth Estimation (CVPR 2024 best paper award nominee)
+    </li>
+
+    <img class="fragment" data-fragment-index="1" src="img/vision/marigold-diagram.jpg" height="600px">
+
+    <li class="fragment" data-fragment-index="1">Fine-tune SD to denoise the label map (e.g., depth map); the original image becomes a conditioning signal
+    </li>
+    <li class="fragment" data-fragment-index="2">The SD VAE is built for RGB images; turns out it works fine if we turn one-channel depth map into three channel image by stacking three copies
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Marigold depth prediction</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+      <ul>
+	<li>At inference (test) time, start the label map as random noise, run through fine-tuned SD (conditioned on the input image)
+	</li>
+	<li>"Denoising" becomes gradual refinement of the labels
+	</li>
+	<li class="fragment" data-fragment-index="1">The SD model knows how to output three-channel RGB images; we need a one-channel depth map
+	  <ul><li>Average the three channels to get the output
+	  </li>
+	  </ul>
+	</li>
+
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:60%;">
+      <img class="fragment" data-fragment-index="2" src="img/vision/marigold-inference.jpg" height="500px">
+    </div>
+  </div> <!-- minipage container -->
+  <div class="tabular fragment tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:350px;" data-fragment-index="3">
+    <img class="fragment" data-fragment-index="2" src="img/vision/marigold-out-diode.png">
+    <img src="img/vision/marigold-out-nyuv2.png">
+
+  </div> <!-- tabular -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Marigold depth prediction</h2>
+
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:900px;">
+    <img src="img/vision/marigold-out-1.jpeg">
+    <img src="img/vision/marigold-out-2.jpeg">
+
+  </div> <!-- tabular -->
+  
+</section>
+
+
+
+
+<!-- the footer (shown unless section class="nofooter";
+
+-->
+<div id="footer-bar" class="footer-bar">
+  <div class="footer-left">AI/Science: Introduction · Greg Shakhnarovich · September 2025</div>
+  <div class="footer-section" id="section-label-overlay"></div>
+  <div class="footer-slide-number" id="slide-number-overlay"></div>
+</div>
+
+
+
+  </div> <!-- slides  -->
+      </div> <!-- reveal  -->
+
+
+
+      <!-- Reveal + plugins -->
+      <script src="../../reveal/dist/reveal.js"></script>
+      <!-- <script src="../../reveal/mathjax/es5/tex-chtml-full.js"></script> -->
+      <script src="../../reveal/plugin/math/math.js"></script>
+      <script src="../../mathmacros.js"></script>
+      <script> //local macros go below
+       Object.assign(window.MJ_MACROS, {
+	 dmodel: ['d_{\\mathrm{model}}'],
+	 dhead: ['d_{\\text{head}}'],
+	 BOS: ['\\mathrm{[BOS]}'],
+	 EOS: ['\\mathrm{[EOS]}'],
+       });
+      </script>
+      <!-- <script src="../../plotly.min.js"></script> -->
+
+      <script src="../../highlight/highlight.min.js"></script>
+      <script src="../../reveal/plugin/highlight/highlight.js"></script>
+
+      <script src="../../script.js"></script>
+      <script src="../../visitedSlideManager.js"></script>
+      <script src="../../effects.js"></script>
+
+      <!-- <script src="../../embed.js" defer></script> -->
+
+      <script>
+       Reveal.initialize({
+	 width: 1920,   // e.g., for 16:10
+	 height: 1200,  // e.g., for 16:10
+	 margin: 0.01,   // whitespace around content
+	 center:false,
+	 hash: true,
+	 controls: false,
+	 plugins: [ RevealMath.MathJax3, RevealHighlight ],
+
+	 // The ONLY MathJax v3 config Reveal will pass through:
+	 mathjax3: {
+       	   // tell the plugin to use your local build (since you removed the manual tag)
+       	   mathjax: '../../reveal/mathjax/es5/tex-chtml-full.js',
+       	   chtml: {
+	     matchFontHeight: false,  // stop per-paragraph x-height scaling
+	     scale: 1,                // keep math at the same CSS size as text
+	     mtextInheritFont: true   // make \text{} use your body font
+      	   },
+	   tex: {
+             inlineMath: [['$', '$'], ['\\(', '\\)']],
+             displayMath: [['$$', '$$'], ['\\[', '\\]']],
+             packages: {'[+]': ['cases','empheq','color','base','boldsymbol','upgreek','ams','newcommand','noerrors','noundefined','html']},
+             macros: window.MJ_MACROS                // <-- your macros land here
+       	   },
+       	   loader: { load: ['[tex]/cases','[tex]/empheq','[tex]/color','[tex]/boldsymbol','[tex]/upgreek','[tex]/html'] },
+
+	   // make sure your slide JS can run AFTER MathJax’s initial typeset
+	   startup: {
+             ready: () => {
+               MathJax.startup.defaultReady();
+               // (re)bind any math-dependent effects here
+               if (window.bindClickEffects) window.bindClickEffects(document);
+             }
+       	   }
+	 }
+
+       });
+
+       // also re-bind when slides change (MathJax output is already in the DOM by then)
+       Reveal.on('ready',  () => window.bindClickEffects?.(Reveal.getCurrentSlide()));
+       Reveal.on('slidechanged', e => window.bindClickEffects?.(e.currentSlide));
+
+      </script>
+
+
+
+  </body>
+</html>

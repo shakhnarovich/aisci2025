@@ -1,0 +1,2648 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AI for Scientists Deep Dive</title>
+    <!-- if want subtitle: uncomment -->
+    <template id="subtitle">Introduction</template>
+    <template id="date">September 2025</template>
+
+    <link rel="icon" type="image/png" sizes="64x64" href="../../icons/rjs.png">
+    <link rel="stylesheet" href="../../reveal/dist/reveal.css">
+    <link rel="stylesheet" href="../../reveal/fonts.css">
+    <link rel="stylesheet" href="../../reveal-style.css">
+    <link rel="stylesheet" href="../../custom.css">
+    <link rel="stylesheet" href="../../effects.css">
+    <link rel="stylesheet" href="../../footer.css">
+    <link rel="stylesheet" href="../../tikz.css">
+    <link rel="stylesheet" href="../../highlight/styles/github.min.css">
+
+    <style>
+     :root {
+       --pop-fg: #005eb8;
+       --pop-bg: #edea85;
+       --pop-font-base:3rem;
+     }
+     .caption { font-size: 0.6em;}
+     body, .reveal {
+       font-family: 'ComputerModernSans', sans-serif;
+       font-size: 42px;
+       color: navy;
+       backgrounw: white;
+     }
+
+     .reveal .controls {
+       display: none !important;
+     }
+    </style>
+  </head>
+  <body>
+
+
+    <div class="reveal">
+      <div class="slides">
+
+<section id="title-slide" class="nofooter" data-section=" ">
+  <h1 id="doc-title" class="title"></h1>
+  <h1 id="doc-subtitle" class="subtitle"></h1>
+  <div class="title-row">
+    <div id="doc-author" class="author">Greg Shakhnarovich</div>
+    <img src="../../ttic-logo-full.png" alt="Institution logo" class="logo">
+  </div>
+  <div id="doc-date" class="date"></div>
+</section>
+
+<section data-section="Prologue">
+  <h2 class="slide-title">Why are we here?</h2>
+  <ul>
+    <li class="fragment" data-fragment-index="1">ML tools ("AI"?) are ubiquitous, unavoidable, and probably helpful for a lot of problems in sciences
+    </li>
+    <li class="fragment" data-fragment-index="2">There is a lot of hype
+    </li>
+    <li class="fragment" data-fragment-index="3">The field is flooded with activity: commercial, promotional, and research (and pseudo-research). Important to isolate key ideas and understand their evolution
+    </li>
+    <li class="fragment" data-fragment-index="4">Whether you want to use tools "off the shelf", adapt such tools to your needs, or develop new tools, you need to understand (to some degree!) what's under the hood of these tools, and why they work the way they do
+    </li>
+    <li class="fragment" data-fragment-index="5">There is an apparent opportunity to provide coverage different in the depth/scope combination from the existing curricular choices
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Goals and mindset</h2>
+  <ul>
+    <li>Learn about some important concepts
+      <ul><li>We will review ML fundamentals (general and deep learning specific)
+      </li>
+      <li class="fragment" data-fragment-index="1">We will try to place the concepts and terms that you probably have heard in some historical, intellectual and technical context
+      </li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="2">We will dive into <i>some</i> of the details -- but will be strategic about it
+    </li>
+    <li class="fragment" data-fragment-index="3">We will <b>not</b> focus much on the hands-on questions and on implementation
+    </li>
+    <li class="fragment" data-fragment-index="4">We will <b>not</b> focus much on results and demos; we re interested in the concepts, ideas, and principles, and you will have to trust me that what we talk about is worthwhile
+    </li>
+    <li class="fragment" data-fragment-index="5"><span data-spotlight="6">Please ask questions</span>, and offer any comments or insights you have. We have plenty of time budgeted for that, and it's important.
+    </li>
+    <li class="fragment" data-fragment-index="7">The choices of what to focus on are subjective; they reflect my take on the technical aspects of the field, my philosophical stances, and to a large extent, my own taste and level of familiarity with the material.
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Logistics</h2>
+  <ul>
+    <li>We will take 10 minute breaks roughly every 80 min (adjusted for material flow)
+    </li>
+    <li>Lunch: noon - 1pm (outside the classroom)
+      <ul>
+	<li>Today only (Monday) we will need to vacate the room at 11:30am
+	</li>
+      </ul>
+    </li>
+    <li>Aim to end lectures at 3:15-3:30pm
+      <ul>
+	<li>have time for Q&A;
+      	</li>
+	<li>then have 1:1 meetings regarding projects (sign up sheet available)
+      	</li>
+      </ul>
+    </li>
+    <li>Thursday: TA tutorial on adpating language models for scientific (bio) data; will demonstrate hands-on application of some of the concepts we will have covered
+    </li>
+    <li>Next Friday: 1:1 meetings to discuss project outcomes/conclusions/issues (to be scheduled)
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Assumptions</h2>
+  <ul>
+    <li>Basic familiarity with linear algebra, i.e.:
+      <ul>
+	<li> Matrix and vector notation, dot product and matrix multiplication
+      	</li>
+	<li>Superficial familiarity with singular value decomposition
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="1">Probability: basic concepts of mean, variance, covariance matrices; 1D and multivariate Gaussian distributions
+      <ul>
+	<li>We will talk about joint, marginal and conditional probabilities
+      	</li>
+	<li>We will talk about expectations, probability density, Bayes rule
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="2">I will occasionally mention PyTorch concepts or show very short snippets; it's fine if you are not familiar
+    </li>
+    <li class="fragment" data-fragment-index="3">I will often discuss images and mention concepts in image processing and computer vision. Will try to avoid jargon, but sometimes it's ingrained.
+      <ul>
+	<li>If not sure what something means, ask!
+	</li>
+      </ul>
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Who am I?</h2>
+  <ul>
+    <li>Faculty member at TTI-Chicago and (part-time) at the University, since 2008
+    </li>
+    <li>Main research area: Computer Vision; also interested in language, robotics, graphics, and "core ML"
+    </li>
+    <li>Background: BSc in Math/CS, PhD in EECS
+    </li>
+    <li>Teaching this year:
+      <ul style="margin-top: 10px;">
+	<li> TTIC 31020: Intro to Computer Vision (Winter)<br>
+      	</li>
+	<li> TTIC 31280: Models for Representing Images and Video (Spring)
+	</li>
+      </ul>
+
+
+    </li>
+    <li>Some very recent/current projects: video modeling and understanding
+
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:500px;">
+
+	<video height="500" class="fragment" data-fragment-index="1"
+	       controls preload="metadata" playsinline muted autoplay >
+	  <source src="img/mine/editduet.mp4" type="video/mp4">
+	  <!-- optional: fallback text -->
+	  Your browser doesn’t support HTML5 video.
+	</video>
+
+	<video height="500" class="fragment" data-fragment-index="2"
+	       controls preload="metadata" playsinline muted autoplay loop>
+	  <source src="img/mine/sign-example.mp4" type="video/mp4">
+	  <!-- optional: fallback text -->
+	  Your browser doesn’t support HTML5 video.
+	</video>
+
+	<span class="caption fragment" data-fragment-index="1">LM for movie editing
+	</span>
+
+	<span class="caption fragment"  data-fragment-index="2">Sign language foundation models
+	</span>
+
+      </div>
+
+    </li>
+
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Roadmap</h2>
+  <ul>
+    <li>Introduction [Monday]
+      <ul data-alert="1-">
+	<li>Review of ML fundamentals
+      	</li>
+	<li>Mechanics of modern learning,
+      	</li>
+	<li>Basic neural building blocks and architectural patterns
+	</li>
+      </ul>
+    </li>
+    <li>Modeling sequences, including language [Monday]
+    </li>  
+    <li>Transformers [Monday? and probably Tuesday]
+      <ul>
+	<li>Attention: intuition and technicalities
+      	</li>
+	<li>Transformer models (language, vision, others)
+      	</li>
+      </ul>
+    </li>
+    <li>Generative models [Tuesday]
+      <ul>
+	<li>Autoencoders and GANs
+      	</li>
+	<li>Diffusion and normalizing flows
+	</li>
+      </ul>
+    </li>
+    <li>Self-supervised learning [Tuesday/Wednesday]
+    </li>  
+    <li>Modeling complex data and case studies [Wednesday]
+      <ul>
+	<li> images, videos, point clouds, meshes,&hellip;
+	</li>
+      </ul>
+    </li>
+  </ul>
+  <span class="fragment ghost-step" aria-hidden="true"></span>
+
+</section>
+
+
+
+<section  data-section="ML review">
+  <h2 class="slide-title">Review: Supervised learning</h2>
+  <ul>
+    <li>
+      Two basic flavors of ML: supervised and unsupervised
+    </li>
+    <li class="fragment" data-fragment-index="1">
+      Supervised learning: map $\mathbf{x}$ to $\mathbf{y}$; learn a model $\widehat{y}=f\left(\mathbf{x};\butheta\right)$ from a training set $\left\{\left(\mathbf{x}_i,\mathbf{y}_i\right)\right\}$
+    </li>
+    <li class="fragment" data-fragment-index="2"> "Learning" = optimization of a loss function
+      \[ \theta^\ast\,=\,\argmin{\theta} L\left(\theta; \{(\mathbf{x}_i,\mathbf{y}_i)\}\right)
+      \class{rj-hide-1-2}{
+      \,=\class{rj-enlarge}{\style{--enlarge-fg:#d32f2f}{\sum_i L\left(f\left(\mathbf{x}_i\right),\mathbf{y}_i\right)}}
+      \,+\,\class{rj-enlarge}{R(\theta)}
+      }
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="3">
+      Typically, the loss depends on deviation between predicted and true labels for each training example
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+
+	<li class="fragment" data-fragment-index="4">
+	  There is often also a <i>regularization</i> term on $\theta$
+	</li>
+	<li class="fragment" data-fragment-index="5">
+	  Basic example: <br>
+	  multivariate regression, $\vy\in\mathbb{R}^k$; <br>
+	  squared loss $L(\widehat{\vy},\vy)\,=\,\eucnorm{\widehat{\vy}-\vy}^2$;<br>
+	  <i>weight decay</i> regularization, $R(\theta)=\lambda\eucnorm{\theta}^2$
+	</li>
+      </ul>
+    </div>
+    <div  class="minipage" style="width:45%;">
+      <img class="fragment" data-fragment-index="5" src="img/regression-task.svg" height="300">
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li class="fragment" data-fragment-index="6">
+      Underlying assumption: there is a true joint distribution $p(\vx,\vy)$ which generates the training set and the (future, unseen) <i>test</i> examples of $(\vx,\vy)$; <span class="fragment" data-fragment-index="7">we are modeling the conditional $p(\vy|\vx)$</span>
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Review: Unsupervised learning</h2>
+  <ul>
+    <li>Unsupervised learning: only have a set of examples $\{\vx_i\}$, no "labels"; want to learn something about the data (actual sample at hand) <i>or</i> the data distribution responsible, $p(\vx)$
+    </li>
+    <li class="fragment" > Density estimation: model $p(\vx;\butheta)$
+      <ul>
+	<li>Likelihood estimation: given $\vx$ how high is $p(\vx;\butheta)$?
+      	</li>
+	<li>Sampling: draw a new $\vx'\,\sim\,p$
+	</li>
+      </ul>
+    </li>
+    <li class="fragment"> Clustering: organize examples into groups (not really "learning", perhaps, since no generalization?)
+    </li>
+    <li class="fragment" > Dimensionality reduction: suppose $\vx\in\mathbb{R}^D$; find mapping
+      \[
+      r: \mathbb{R}^D\;\to\;\mathbb{R}^d,\quad d\ll D
+      \]
+      such that $\{\vx'_i=r\left(\vx_i\right)\}$ has some desired properties, w.r.t. the original data $\{\vx\}$ or otherwise
+      <ul  style="margin-top: 20px;">
+     	<li class="fragment"> Reconstruction: $\eucnorm{r(\vx)-\vx}$ is small
+      	</li>
+     	<li class="fragment"> Visualization (for $d\le 3$): plotting $\{r(\vx)\}$ reveals some useful information to human eyes
+      	</li>
+     	<li class="fragment" >Just reducing computation without hit to performance
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" >Many of these goals can be a <i>pretext</i> for learning something else useful for "downstream tasks" -- more on this later!
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Other forms of learning</h2>
+
+  <div class="minipage-container" style="align-items: center;" style="justify-content:flex-start;">
+    <div class="minipage" style="width:65%;">
+      <ul>
+	<li> Reinforcement learning: <br>
+	  <i>Agents</i> interact with the world (environment);<br>
+	  Importantly, their action can modify the environment!<br>
+	  Receive <i>rewards</i> (not necessarily after every interaction);<br>
+	  Need to learn a <i>policy</i> mapping internal state, goals and world observation into action step(s).
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:35%;">
+      <figure class="attributed-img align-left" data-attrib="Image: Megajuice, CC0, via Wikimedia Commons">
+	<img src="img/RL_diagram.svg" height="460px" style="display:block; margin-inline-start:0 !important; margin-inline-end:auto !important;">
+      </figure>
+    </div>
+  </div> <!-- minipage container -->
+
+
+  <ul>
+    <li class="fragment">Semi-superwised: training data consiste of labeled $\{(\vx,\vy)\}$ and unlabeled $\{\vx'\}$ data.
+      <ul>
+	<li>Why would it <span data-click="enlarge" style="--enlarge-scale:1.0">help<template data-role="pop"> Unlabeled data give us information on $p(\vx)$ and thus ultimately a better understanding of $p(\vx,\vy)$ and better estimation of $\pc{\vy}{\vx}$  <img src="img/ml/semi-sup-benefit.png">
+</template></span>?
+	</li>
+      </ul>
+    </li>
+    <li class="fragment">Weakly supervised: training data is labeled $\{(\vx,\vy')\}$ but the labels $\vy'$ are some (noisy, partial,&hellip;) function of real labels $\vy$
+    </li>
+
+    <li class="fragment"> Active learning:<br>
+      Typically a form of supervised learning, with the learner <i>requesting</i> labels for certain examples
+    </li>
+
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Brief history of ML</h2>
+  <ul>
+    <li class="fragment" data-fragment-index="1">XIX century and before: optimizing functions based on data (e.g., astronomy)
+    </li>
+    <li class="fragment" data-fragment-index="2"> 1950s: perceptrons (Rosenblatt)
+    </li>
+    <li class="fragment" data-fragment-index="3"> 1960s: rule-based systems
+    </li>
+    <li class="fragment" data-fragment-index="4"> 1960s-1970s: convergence with statistics; emergence of theory of learning; hidden Markov models
+    </li>
+    <li class="fragment" data-fragment-index="5">1980s: origins of "deep learning" -- backpropagation, convolutional networks (concepts central today)
+    </li>
+    <li class="fragment" data-fragment-index="6">1990s: Kernel methods (SVMs), ensembles (boosting, etc.); emergence of heavy compute in ML<br>
+      At the same time, continuing development of neural networks.
+    </li>
+    <li class="fragment" data-fragment-index="7">2000s: benchmarks become influential; lots of "feature engineering" in vision, speech, language. ML based models become practical and (at scale) start being competitive.
+    </li>
+    <li class="fragment" data-fragment-index="8">Mid 2000s-early 2010s: graphical models are dominant -- conditional random fields, etc., including efforts on "deep learning"
+    </li>
+    <li class="fragment" data-fragment-index="9">2012: ImageNet competition is won by AlexNet; beginning of modern deep learning era. Within 4-5 years CNNs dominate many fields.
+    </li>
+    <li class="fragment" data-fragment-index="10">2016: Transformers paper published (takes a couple of years to catch on).<br>
+      Autoencoders, VAEs, GANs
+    </li>
+    <li class="fragment" data-fragment-index="11">2020: beginning of generative model craze; LLMs and text-to-image diffusion models &hellip;
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title" data-section="Deep learning">Linear and non-linear models</h2>
+  <ul>
+    <li>The most basic ML method (?): nearest neighbors. Works great at scale -- but is also difficult to scale.
+    </li>
+    <li>Next most basic: linear models,
+      $f(\vx)\,=\,\ip{\vw}{\vx}\class{rj-hide-0-0}{\,+b}\class{rj-hide-0-1}{\,=\,\ip{\vw}{[1,\vx]}}$
+    </li>
+    <li>Obviously very limited<span class="fragment" data-fragment-index="3">; but easy to extend using nonlinear <i>feature transform</i></span>
+    </li>
+    <div class="tabular tabular--grid two-row-captions proportional-fit"
+	 style="--cols:4; --col-gap:.6em; --row-gap:.35em;
+		--img-height:5.5cm;">
+      <img src="img/polyfit1.svg">
+      <span class="fragment" data-fragment-index="3">
+  	<img src="img/polyfit3.svg">
+      </span>
+      <span class="fragment" data-fragment-index="4">
+	<img src="img/polyfit5.svg">
+      </span>
+      <span class="fragment" data-fragment-index="7">
+	<img src="img/polyfit10.svg">
+      </span>
+
+      <span>Linear
+      </span>
+      <span class="fragment" data-fragment-index="3">3rd order
+      </span>
+      <span class="fragment" data-fragment-index="4">5th order
+      </span>
+      <span class="fragment" data-fragment-index="7">10th order
+      </span>
+
+    </div> <!-- tabular -->
+
+    <li style="margin-top:30px;" class="fragment" data-fragment-index="3">Example: regression with polynomial features up to $k$-th order
+      \[f(x)\,=\,\ip{\vw}{[1,x,x^2,x^3,\ldots,x^k]}\]
+    </li>
+    <li class="fragment" data-fragment-index="5">Not linear in the original $x\in\mathbb{R}$ but linear in a feature vector $\bphi(x)=[1,x,x^2,\ldots,x^k]\in\mathbb{R}^{k+1}$, and very importantly, linear in $\vw$
+    </li>
+    <li class="fragment" data-fragment-index="5">We can design feature transforms and so control the <span data-alert="6">complexity</span> of the model -- perhaps making it too complex?
+    </li>
+    <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+    <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Review: model complexity, overfitting and underfitting</h2>
+  \[
+  \btheta^\ast = \argmin{\btheta} L\left(\btheta;\left\{(\vx_i,\vy_i)\right\}\right)
+  \]
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li>Model fitting: finding of the optimal $\btheta^\ast$<br>
+	  [For now, let's assume we can actually find the training set optimum]
+	</li>
+	<li><span data-alert="1">Under</span>fitting: the model can not adequately "explain" the training data (large training error)
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img class="fragment" data-fragment-index="1" src="img/polyfit1.svg" height="300">
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2"><span data-alert="2">Over</span>fitting: the model explain training data very well but fails to explain new (test) data; a large gap between training and test errors
+
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img class="fragment" data-fragment-index="2" src="img/polyfit10.svg" height="300">
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+
+
+
+<section>
+  <h2 class="slide-title">Features in ML</h2>
+  <ul>
+    <li>Much of the ML research (in "core ML", but especially in application areas -- vision, speech, NLP, graphics,&hellip;) in 1990s-2010s: "feature engineering"
+    </li>
+    <li>Example: Histograms of oriented gradients (HoG) for image understanding
+
+      <img src="img/hog-diagram.svg" height="150">
+
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li>Designed for person detection; quickly adapted for hundreds of tasks (original paper cited 50k times)
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:30%;">
+
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:8cm;" >
+	<img src="img/hog-input.jpeg">
+    	<img src="img/hog-output.jpeg">
+      </div> <!-- tabular -->
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li>Key transition to deep learning: features can be <i>learned</i>, not hand-crafted
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Deep learning</h2>
+  \[
+  f_y(\vx;{\color{green} \btheta_1},
+  {\color{red} \btheta_2},\ldots,
+  {\color{blue} \btheta_L}
+  )\,\class{rj-hide-0-0}{=}\,\class{rj-hide-0-2}{{\color{blue} F_L}(
+  F_{L-1}(
+  \cdots}
+  \class{rj-hide-0-1}{{\color{red} F_2}(}
+  \class{rj-hide-0-0}{{\color{green} F_1}(\vx;{\color{green} \btheta_1})}
+  \class{rj-hide-0-1}{;{\color{red}\btheta_2})}
+  \class{rj-hide-0-2}{\cdots
+  );{\color{blue} \theta_L}
+  )}
+  \]
+  <ul>
+    <li>A system that uses a hierarchy of features of the input, learned
+      end-to-end jointly with the predictor.
+    </li>
+    <li>Each $F_k$ is a <i>layer</i> of the deep model
+    </li>
+    <li class="fragment" data-fragment-index="3">${\color{blue} F_L}$: the predictor, outputs the estimated $\widehat{\vy}$
+    </li>
+    <li class="fragment" data-fragment-index="4">The layers are not always explicitly delineated in the model (<span data-enlarge="5">network</span>) architecture; <br>they represent the <i>topological sort</i> of the directed acyclic graph of computation
+    </li>
+    <li class="fragment" data-fragment-index="6"> A basic form: <span data-alert="6">multi-layer neural network</span>, or multi-layer perceptron
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul class="fragment" data-fragment-index="7">
+	<li>Original (single-layer) <span data-click="enlarge" style="--enlarge-scale:1.0">perceptron<template data-role="pop"> The hopes were dashed following Minsky and Pappert book "Perceptrons" which "proved" that this is a dead end; critique mostly focused on linear classifier, but also poo-pooed multi-layer networks and backpropagation.
+	  <img src="img/ml/perceptrons-book.jpg" height="150px;">
+	</template></span>: 1950s
+      	</li>
+	<li>From “Mechanisation of Thought Process”,
+	  1959: <tt>The Navy revealed the embryo of an
+	  electronic computer today that it expects will
+	  be able to walk, talk, see, write, reproduce
+	  itself and be conscious of its existence. Later
+	  perceptrons will be able to recognize people
+	  and call out their names and instantly translate
+	  speech in one language to speech and writing
+	  in another language, it was predicted.</tt>
+	</li>
+      </ul>
+
+
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img src="../mlfig/rosenblatt.jpg" height="400" class="fragment" data-fragment-index="7">
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="5" aria-hidden="true"></span>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Multi-layer perceptron</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li>Input: $\vx=[x_1,\ldots,x_d]\in\mathbb{R}^d$
+      	</li>
+	<li>First layer: $m$ <i>hidden units</i> with <i>activation function</i> $h$<br> unit $j$ computing
+	  \[a^{(1)}_j\,=\,h\left(\sum_i{\color{green} w^{(1)}_{i,j}}x_i+{\color{green}b^{(1)}_j}\right) \]
+      	</li>
+	<li class="fragment" data-fragment-index="4">Second layer: $c$ output units
+     	  \[a^{(2)}_k\,=\,h\left(\sum_j{\color{red} w^{(2)}_{j,k}}a^{(1)}_j+{\color{red}b^{(2)}_k}\right) \]
+      	</li>
+	<li class="fragment" data-fragment-index="7">Or there could be more units!
+      	</li>
+	<li class="fragment" data-fragment-index="8">Note that we are counting layers of <i>weights</i>, not layers of units
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:45%;">
+      <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:800px;">
+      	<img class="fragment" data-fragment-index="1" src="img/mlp-page1.svg" >
+      	<img class="fragment" data-fragment-index="2" src="img/mlp-page2.svg" >
+      	<img class="fragment" data-fragment-index="3" src="img/mlp-page3.svg" >
+      	<img class="fragment" data-fragment-index="4" src="img/mlp-page4.svg" >
+      	<img class="fragment" data-fragment-index="5" src="img/mlp-page5.svg" >
+      	<img class="fragment" data-fragment-index="6" src="img/mlp-page6.svg" >
+      	<img class="fragment" data-fragment-index="7" src="img/mlp-page7.svg" >
+      	<img class="fragment" data-fragment-index="8" src="img/mlp-page8.svg" >
+      </div>
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Why "neural networks"?</h2>
+
+  <ul>
+    <li>The basic hidden unit operation matches the McCulloch-Pitts model,
+      ca. 1943
+    </li>
+  </ul>
+
+  <div class="diagram-stack" style="margin-top:30px;width: 80%; margin: 0 auto; --stack-img-height:500px">
+    <img class="fragment" data-fragment-index="1" src="img/johnson-synapse.png" >
+    <figure  class="attributed-img fragment" data-fragment-index="2" data-attrib="[Justin Johnson]">
+      <img  src="img/johnson-neurons.png" >
+    </figure>
+
+  </div>
+
+  <ul>
+    <li class="fragment" data-fragment-index="2">Real neurons are more complex (e.g., rate coding) and real neural networks are not organized in "layers"
+    </li>
+  </ul>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Activation functions</h2>
+  <figure class="attributed-img" data-attrib="[Justin Johnson]">
+    <img src="img/activation-zoo.svg" height="700" style="display:block; margin-inline-start:0 !important; margin-inline-end:auto !important;">
+  </figure>
+  <ul>
+    <li>A large zoo of activation functions evolved over decades
+    </li>
+    <li>Default choice: use ReLU; try GELU (especially with transformers)
+    </li>
+  </ul>
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Feed-forward networks</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:80%;">
+      <ul>
+	<li>The two-layer perceptron, in matrix form:
+     	  \[
+	  \mathbf{f}(\vx)\,=\,\ip{{\color{red}\mathbf{W}_2}}
+	  {h\left(
+	  \ip{{\color{green} \mathbf{W}_1}}{\vx}+{\color{green} \mathbf{b}_1}
+	  \right)}
+	  \,+\,{\color{red}\mathbf{b}_2}
+     	  \]
+	  where $h$ is applied element-wise
+      	</li>
+	<li class="fragment" data-fragment-index="1">
+	  Dimensions, assuming we have $m$ hidden units and $C$ outputs
+     	  \[
+	  \vx\in\mathbb{R}^d,
+	  {\color{green}\mathbf{W}_1}\in\mathbb{R}^{m\times d},
+	  {\color{red}\mathbf{W}_2}\in\mathbb{R}^{C\times m},
+	  {\color{red}\mathbf{b}_2}\in\mathbb{R}^C,
+	  {\color{green}\mathbf{b}_1}\in\mathbb{R}^m
+     	  \]
+
+      	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:20%;">
+      <img src="img/little-mlp.svg" height="300px">
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul style="margin-top:-45px;">
+    <li class="fragment" data-fragment-index="3">Learning the model means finding
+      $ \btheta = \left[{\color{green}\mathbf{W}_1},
+      {\color{red}\mathbf{W}_2},
+      {\color{red}\mathbf{b}_2},
+      {\color{green}\mathbf{b}_1}\right]$ (<i>weights and biases</i>) that achieve low loss on the training data $(\mathcal{X},\mathcal{Y})$
+    </li>
+    <li class="fragment" data-fragment-index="4">A general form of learning: optimization using gradient descent!<br>
+      Make a guess $\btheta^{(0)}$ for $\btheta$;
+      <span class="fragment" data-fragment-index="5">Compute loss <span data-click="enlarge" style="--enlarge-scale:1.6">gradient<template data-role="pop">  Gradient of a function $f:\vx\in\mathbb{R}^d\to\mathbb{R}$ is the vector of partial derivatives
+	\[\nabla_\vx f(\vx')\,=\,\left[\frac{\partial f}{\partial x_1}(\vx'),\ldots,
+	\frac{\partial f}{\partial x_1}(\vx')	
+	\right].
+	\] It is the direction of <b>steepest ascent</b> for the value of $f$ at $\vx'$.</template></span> $\nabla_\btheta L(\btheta;\mathcal{X},\mathcal{Y})$;</span><br>
+      <span class="fragment" data-fragment-index="6">Make a step in the opposite direction (want to reduce loss),
+	$\btheta^{(1)}\,=\,\btheta^{(0)}-\eta\nabla_\btheta L(\btheta;\mathcal{X},\mathcal{Y})$; and continue until convergence</spann>
+    </li>
+    <li class="fragment" data-fragment-index="6"> How to compute $\nabla$? What's $\eta$? When do we stop? Much more on this soon!
+    </li>
+  </ul>
+
+
+
+</section>
+
+<section data-section="Representing loss">
+  <h2 class="slide-title">Model outputs: classification and regression</h2>
+
+  <ul>
+    <li>If the target is $C$-dim regression: a reasonable loss is  $L(f;\vx,\vy)\,=\,\eucnorm{f(\vx)-\vy}^2$.
+    </li>
+    <li class="fragment" data-fragment-index="1">What if we are doing $C$-way classification? <br>
+      Intuition: $f_c(\vx)$ is a measure of "match" of $\vx$ to class $c$; but what are the units and how do we use them to classify?
+    </li>
+    <li class="fragment" data-fragment-index="1">If we just want to classify, units are not important! Simply take $\argmax{c} f_c(\vx)$
+    </li>
+    <li class="fragment" data-fragment-index="2">For classification, the only thing that matters is the relative value logits $f_c(\vx)$ across classes $c$; no need for softmax.
+    </li>
+    <li class="fragment" data-fragment-index="2">We can measure classification error of function $f$ (our MLP) on an example $(\vx,y)$:
+      \[
+      L(f;\vx,y)\,=\,
+      \begin{cases}
+      0, & \text{if}\,\argmax{c}f_c(\vx)\,=\,y,\\
+      1 & \text{otherwise}
+      \end{cases}
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="3">Unfortunately it is not differentiable -- can not learn with it!
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Softmax</h2>
+  <ul>
+
+    <li>What if we want to convert network outputs $f_1,\ldots,f_C$ to posterior $p\left(c|\vx\right)$? Use softmax:
+      \[\widehat{y}_k\,=\,\widehat{p}\left(k|\vx\right)\,=\,\frac{\exp\left(f_k(\vx)\right)}
+      {\sum_{c=1}^C \exp\left(f_c(\vx)\right)}
+      \]
+      (cf. Boltzmann or Gibbs distribution)
+    </li>
+    <li class="fragment" data-fragment-index="1">Softmax output is guaranteed to yield a valid probability distribution over $C$ classes
+    </li>
+    <li class="fragment" data-fragment-index="1">The "raw" $f_c$ values are called <i>logits</i>; the softmax transformation converts (calibrates) logits into probabilities based on their relative value
+    </li>
+    <li class="fragment" data-fragment-index="2">Example:
+      \[
+      [\class{rj-alert-3}{0.1},\,\class{rj-alert-3}{0.2},\, 0.4,\, 0.8,\, 1.6,\, \class{rj-alert-4}{3.2}]\,\to\,
+      [\class{rj-alert-3}{0.031},\, \class{rj-alert-3}{0.034},\, 0.042,\, 0.063,\, 0.140,\, \class{rj-alert-4}{0.690}]
+      \]
+
+      <span class="fragment" data-fragment-index="4">[check: what happens if you add a constant $a$ to logits across classes?]</span>
+    </li>
+    <li class="fragment" data-fragment-index="4">Let's now use softmax to set up a differentiable loss function
+    </li>
+  </ul>
+  <span class="fragment ghost-step"  data-fragment-index="3"aria-hidden="true"></span>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Cross-entropy</h2>
+  <ul>
+    <li>Intuition: loss should measure how good our outputs (logits) $f_1(\vx),\ldots,f_C(\vx)$ is given the true $y^\ast\in[C]$
+    </li>
+    <li>Log-loss: the negative (estimated) probability of the correct class $L(f;\vx,y^\ast)\,=\,-\log f_{y^\ast}(\vx)$
+    </li>
+    <li class="fragment" data-fragment-index="1">Make $\vy\in\class{rj-enlarge}{\{0,1\}}^C$ a "one-hot" encoding of the class label,
+      $y_c=1$ if $c=y^\ast$ and 0 otherwise. Apply softmax to get
+      \[\widehat{y}_c(f(\vx))\,=\,\frac{\exp\left(f_c(\vx)\right)}
+      {\sum_j\exp\left(f_j(\vx)\right)}
+      \]
+      Then the loss can be written as
+      \[L(f;\vx,\vy)\,=\,-\sum_c y_c\log\widehat{y}_c(f(\vx))
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="2">This is the <i>cross-entropy</i> between true (one-hot) label distribution $\vy$ and the estimated $\widehat{\vy}$; if $\log$ is base 2, it is measured in bits
+    </li>
+    <li class="fragment" data-fragment-index="3">Note: it is perfectly well defined when $\vy\in\class{rj-enlarge}{[0,1]}^C$, e.g., if true labels are uncertain (inherently or due to measurement noise)
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Loss functions</h2>
+  <!-- -kl-div interp of x-ent; focal loss; hard negatives
+
+       multi-class vs multi-label
+       sigmoid
+       regression as classification (why?)
+
+
+  -->
+  <ul>
+    <li>Multiclass classification: $\vx\to y\in[1,\ldots,C]$<span data-hide="0"> or in other words <span data-click="enlarge" style="--enlarge-scale:1.6">$\to \vy\in\mathbb{S}_C$<template data-role="pop"> $C$-dim simplex: $\vy\in[0,1]^C$ s.t. $\sum_iy_c\,=\,1$</template></span>
+    </li>
+    <li class="fragment" data-fragment-index="1">Multi<u>label</u> classification: $\vx\to\vy\in[0,1]^C$ (no sum constraint)<br>
+      $\vx\,\to\,[0,0,1,0,1,0,0]$ &rarr; $\vx$ has labels 3 <b>and</b> 5 (belongs to classes 3 <b>and</b> 5)
+    </li>
+    <li class="fragment" data-fragment-index="1">Examples: a patient with multiple conditions; an image with multiple object categoriees; document discussing multiple topics.
+    </li>
+    <li class="fragment" data-fragment-index="2">We can use softmax for multilabel, but it doesn't make much sense.
+    </li>
+    <li class="fragment" data-fragment-index="2">Typical choices instead involve enforcing $[0,1$ range on each output dimension. Let $f_c$ be the logit (model output value) for $i$-th class;
+      <ul>
+	<li class="fragment" data-fragment-index="3"><span data-click="enlarge" style="--enlarge-scale:1.0">Sigmoid loss<template data-role="pop"> This is mathematically equivalent to using softmax for two categories ("$c$" or "not $c$") where $f_c$ is a degree of $c$ness. The shape of the sigmoid function (also known as the logistic function):
+	  <img src="img/ml/logistic.svg">
+
+	</template></span>:
+	\[\widehat{y}_c\,=\widehat{p}(y_c=1|\vx)\,=\,\frac{1}{1+\exp\left(-f_c\right)}\qquad
+	\class{rj-hide-0-3}{\Rightarrow\qquad L(\widehat{\vy},\vy)\,=\,-\sum_cy_c\log \widehat{y}_c}
+	\]
+      	</li>
+	<li class="fragment" data-fragment-index="5">Use square loss (no probabilistic interpretation)
+	  \[L(\widehat{\vy},\vy)\,=\,\sum_c\left(\widehat{y}_c\,-\,y_c\right)^2\]
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="5">Both are differentiable
+    </li>
+  </ul>
+
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Dealing with imbalanced categories</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+      <ul>
+	<li>In many real world scenarios, categories have very different frequencies, and some examples are a lot easier to classify than others
+      	</li>
+	<li>Focal loss: reduce the contribution of easiest examples to the loss
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:60%; margin-left:-30px">
+      <img src="img/vision/coco-stats.svg" height="260px">
+
+    </div>
+
+  </div> <!-- minipage container -->
+
+  <img src="img/ml/focal.svg" height="400px">
+
+  <ul>
+    <li class="fragment" data-fragment-index="1">Asymmetric loss: assign a different weight (hyperparameter to tune) to losses on different classes
+    </li>  
+  </ul>	 
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Data augmentation</h2>
+  <ul>
+    <li>An important technique when you have relatively scarce data: augment the training set. Synthesize new training examples by transforming the original data.
+    </li>
+    <li>A commonly used set of transforms: <code>from torchvision.transforms import v2</code>
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img" data-attrib="source: Encord.com">
+	<img src="img/ml/augmentations-dogs.png" height="500px">
+      </figure>
+
+    </div>
+    <div class="minipage fragment" style="width:50%;"  data-fragment-index="1">
+      Can compose transforms!
+      <img class="fragment" data-fragment-index="1" src="img/ml/augmentations-compose-encord.png" height="240px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul class="fragment" data-fragment-index="2">
+	<li>Careful: some transforms may alter the ground truth (e.g., if you rotate the image, remember to rotate the segmentation map!) and some may be inappropriate given the task
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:6.5cm; margin-top:-20px">
+	<img src="img/ml/macaw1.png" class="fragment" data-fragment-index="2">
+	<img src="img/ml/macaw2.png" class="fragment" data-fragment-index="2">
+	<span class="caption fragment" data-fragment-index="3">Blue-throated macaw</span>
+	<span class="caption fragment" data-fragment-index="3">Blue and yellow macaw</span>
+      </div> <!-- tabular -->
+    </div>
+  </div> <!-- minipage container -->
+
+
+
+</section>
+
+
+
+<section data-section="Backpropagation">
+  <h2 class="slide-title">Gradient descent</h2>
+  <ul>
+    <li>We have our <i>surrogate loss</i>: cross-entropy (instead of classification error which we really care about)
+    </li>
+    \[
+    \begin{align}
+    \widehat{p}(y=c|\vx)\,=\,\exp(f_c(\vx))/\sum_j\exp(f_j(\vx))\qquad
+    \Rightarrow
+    L(f;\vx,y)\,&=\,-\log\widehat{p}(y|\vx)\\
+    &=\,-f_y(\vx)+\log\sum_c\exp\left(f_c(\vx)\right)
+    \end{align}
+    \]
+    <li>We use a loose notation $L(f,\cdots)$ to mean $L$ as a function of all the weights and biases in $f$
+    </li>
+    <li>Our parameters (optimization "iterate") are a bunch of matrices and vectors
+      \[\mW_1\,=\,
+      \begin{bmatrix}
+      \vw_{1,1}\\
+      \ldots\\
+      \vw_{1,m}
+      \end{bmatrix},\qquad
+      \vb_1\,=\,
+      \begin{bmatrix}
+      b_{1,1}\\
+      \ldots\\
+      b_{1,m}
+      \end{bmatrix},\qquad
+      \begin{bmatrix}
+      \vw_{2,1}\\
+      \ldots\\
+      \vw_{2,C}
+      \end{bmatrix},\qquad
+      \vb_2\,=\,
+      \begin{bmatrix}
+      b_{2,1}\\
+      \ldots\\
+      b_{2,C}
+      \end{bmatrix}
+      \]
+    </li>
+    <li>Now we need to calculate $\nabla L(f,\vx,y)$; what does that look like?
+      Let's focus on partial gradients,
+      \[\frac{\partial L(\vx,y)}{\partial \mW_1},\quad
+      \frac{\partial L(\vx,y)}{\partial \vb_1},\quad
+      \ldots
+      \]
+
+    </li>
+  </ul>
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Gradient of MLP loss</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:15%;">
+      <ul>
+	<li>Recall:
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:85%;">
+      <img src="img/math-dense.svg" height="230px">
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:75%;">
+      <ul>
+	<li>Let's calculate!
+	  \[
+	  \frac{\partial L(\vx,y)}{\partial \mW_1}\,=\,
+	  \class{rj-hide-0-0}{
+	  -\vw^T_{2,y}
+	  }
+	  \class{rj-hide-0-1}{
+	  \frac{\partial h(\ip{\mW_1}{\vx}+\vb_2)}{\partial\left[\ip{\mW_1}{\vx}+\vb_2)\right]}
+	  }
+	  \class{rj-hide-0-2}{
+	  \underbrace{\frac{\partial \ip{\mW_1}{\vx}}{\partial \mW_1}}_{\class{rj-hide-0-3}{\text{3D tensor!}}}
+	  }
+	  \class{rj-hide-0-3}{\,+\ldots\,}
+	  \]
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:25%;">
+      <img class="fragment" data-fragment-index="5" src="img/dead-emoji.jpeg" height="120px" style="display:block;margin-left:0;margin-right:auto;">
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li class="fragment" data-fragment-index="6">We have a chain mapping -- in general terms, like this
+	</li>
+      </ul>
+      <div class="diagram-stack" style="width: 80%; --stack-img-height:250px"">
+	<img class="fragment" data-fragment-index="6" src="img/chain-calc-page1.svg" >
+	<img class="fragment" data-fragment-index="7" src="img/chain-calc-page2.svg" >
+	<img class="fragment" data-fragment-index="8" src="img/chain-calc-page3.svg" >
+	<img class="fragment" data-fragment-index="9" src="img/chain-calc-page4.svg" >
+      </div>
+    </div>
+    <div class="minipage" style="width:40%;">
+      <span class="fragment" data-fragment-index="9">Let's try to use the chain rule of differentiation!</span>
+    </div>
+  </div> <!-- minipage container -->
+
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="3" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Chain rule for gradients</h2>
+  <div style="">
+    <img src="img/chain-calc-page4.svg" style="display:flex;justify-content:left;" height="200px">
+  </div>
+
+  <ul>
+    <li> Computing partial gradients:
+      \[\nabla_{\mathbf{v}}z=\frac{\partial z}{\partial
+      \mathbf{v}}\,=\,\frac{\partial h(\mathbf{v})}{\partial \mathbf{v}}
+      \]
+      \[
+      \class{rj-hide-0-0}{\frac{\partial z}{\partial u_i}\,
+      =\,\sum_j\frac{\partial z}{\partial v_j}
+      \frac{\partial v_j}{\partial u_i}\;\Rightarrow\;
+      \nabla_{\mathbf{u}}z\,=\,\overbrace{\left(\frac{\partial \mathbf{v}}{\partial \mathbf{u}}\right)^T}^{\text{Jacobian}}\nabla_{\mathbf{v}}z
+      }
+      \]
+      \[
+      \class{rj-hide-0-1}{
+      \frac{\partial z}{\partial x_k}\,
+      =\,\sum_q\frac{\partial z}{\partial u_q}
+      \frac{\partial u_q}{\partial x_k}\;\Rightarrow\;
+      \nabla_{\mathbf{x}}z\,=\,\left(\frac{\partial \mathbf{u}}{\partial \mathbf{x}}\right)^T\nabla_{\mathbf{u}}z
+      }
+      \]
+    </li>
+  </ul>
+
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Stage-wise computation</h2>
+  <ul>
+    <li> Let's zoom in a bit on the computation inside an MLP
+      \[
+      \begin{align}
+      \vx,\,\mathbf{W}_1,\mathbf{b}_1\,&\to\,\mathbf{a}_1\,=&\,\ip{\mathbf{W}_1}{\vx}+\mathbf{b}_1\\
+      \mathbf{a}_1\,&\to\,\mathbf{z}_1\,=&\,h(\mathbf{a}_1)\\
+      \mathbf{z}_1,\,\mathbf{W}_2,\mathbf{b}_2\,&\to\,\mathbf{a}_2\,=&\ip{\mathbf{W}_2}{\mathbf{z}_1}+\mathbf{b}_2\\
+      \mathbf{a}_2,\,y\,&\to\,L\,=&\,-\ip{\mathbf{e}_y}{\mathbf{a}_2}\,+\,
+      \log \left[\ip{\mathbf{1}}{\exp(\mathbf{a}_2)}\right]\\
+      \end{align}
+      \]
+
+    </li>
+    <li> Here $\mathbf{e}_j$ is a one-hot vector for $j$, $\mathbf{1}$ is a vector of ones;<br>
+      $\va_1$ is the "raw" value in layer 1 (before $h$), $\vz_1$ is the output ("activation") of layer 1, etc.
+    </li>
+    <li class="fragment" data-fragment-index="1">Now we have, e.g.,
+      \[\nabla_{\mathbf{z}_1}L\,=\,\left(\frac{\partial
+      \mathbf{a}_2}{\partial \mathbf{z}_1}\right)^T\nabla_{\mathbf{a}_2}L,
+      \]
+      \[
+      \class{rj-hide-0-1}{
+      \nabla_{\mathbf{W}_1}L\,=\,\sum_j\left(\nabla_{\mathbf{W}_1}z_{1,j}\right)
+      \left(\nabla_{\mathbf{z}_1}L\right)_j
+      }
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="3">So what is $\nabla_{\mathbf{W}_1}z_{1,j}$ like and how do we compute it?
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Backpropagation [1]</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Consider a node $\#t$ in the network (ignore biases)
+      	</li>
+	<li class="fragment" data-fragment-index="1">$t$ receives input from
+	  $I(t)\,=\,\{i_1,\ldots,i_S\}$
+      	</li>
+	<li class="fragment" data-fragment-index="2">Computation in the node:
+	  \[a_t\,=\,\sum_{j\in I(t)}w_{j,t}z_j,\qquad z_t\,=\,h(a_t)\]
+	</li>
+	<li class="fragment" data-fragment-index="3">$t$ sends output to
+	  $O(t)\,=\,\{o_1,\ldots,o_R\}$
+      	</li>
+	<li class="fragment" data-fragment-index="5"> Eventually the "descendants" of $z_t$ produce logits $f_1,\ldots$
+      	</li>
+	<li class="fragment" data-fragment-index="6"> The loss $L$ is computed from the logits
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="diagram-stack" style="width: 80%; margin: 0 auto;--stack-img-height:700px">
+	<img class="fragment" data-fragment-index="0" src="img/backprop-page1.svg" >
+	<img class="fragment" data-fragment-index="1" src="img/backprop-page2.svg" >
+	<img class="fragment" data-fragment-index="2" src="img/backprop-page3.svg" >
+	<img class="fragment" data-fragment-index="3" src="img/backprop-page4.svg" >
+	<img class="fragment" data-fragment-index="4" src="img/backprop-page5.svg" >
+	<img class="fragment" data-fragment-index="5" src="img/backprop-page6.svg" >
+	<img class="fragment" data-fragment-index="6" src="img/backprop-page7.svg" >
+      </div>
+
+    </div>
+  </div> <!-- minipage container -->
+  <ul style="margin-top:-50px;">
+    <li class="fragment" data-fragment-index="7">The loss $L$ depends on $w_{j,t}$ only through $a_t$:
+      \[
+      \frac{\partial L}{\partial w_{j,t}}\;=\;
+      \frac{\partial L}{\partial a_t}
+      \frac{\partial a_t}{\partial w_{j,t}}
+      \class{rj-hide-0-8}{
+      \;=\;\frac{\partial L}{\partial a_t}z_j
+      }
+      \]
+    </li>
+
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="8" aria-hidden="true"></span>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Backpropagation [2]</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Compute the (backward) gradient flow. Recall:
+	  \[a_t\,=\,\sum_{i\in I(t)}w_{i,t}h\left(a_i\right)\]
+      	</li>
+	<li class="fragment" data-fragment-index="1">Notation: $d_t\,=\,\frac{\partial L}{\partial a_t}$. $d_{f_c}$ is easy (?)
+      	</li>
+	<li class="fragment" data-fragment-index="4"> The flow arrives to unit $t$ from $O(t)$:
+     	  \[
+	  \begin{align}
+	  d_t\,&=\,\frac{\partial L}{\partial a_t}\,=\,
+	  \sum_{o\in O(t)}\class{rj-alert-5-6}{\frac{\partial L}{\partial a_o}}
+	  \frac{\partial a_o}{\partial a_t}\\
+       	  &\class{rj-hide-0-4}{=\,
+	  \sum_{o\in O(t)}\class{rj-alert-5-6}{d_o}w_{t,o}h'\left(a_t\right)
+    	  }
+	  \class{rj-hide-0-6}{
+	  \,=\,h'\left(a_t\right)\sum_{o\in O(t)}d_ow_{t,o}
+	  }
+	  \end{align}
+     	  \]
+	  <span class="fragment" data-fragment-index="6">where $h'(a_t)$ is the derivative of the activation function $h$ evaluated at the value $a_t$ (we will want a differentiable $h$)</span>
+      	</li>
+	<li class="fragment" data-fragment-index="9">Note: we can backprop all the way to the <i>inputs</i> (for now unclear why we'd want to)
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="diagram-stack" style="width: 80%; margin: 0 auto; --stack-img-height:800px">
+
+	<img class="fragment" data-fragment-index="1" src="img/ml/backprop-back-page2.svg" >
+	<img class="fragment" data-fragment-index="2" src="img/ml/backprop-back-page3.svg" >
+	<img class="fragment" data-fragment-index="3" src="img/ml/backprop-back-page4.svg" >
+	<img class="fragment" data-fragment-index="4" src="img/ml/backprop-back-page5.svg" >
+	<img class="fragment" data-fragment-index="8" src="img/ml/backprop-back-page6.svg" >
+	<img class="fragment" data-fragment-index="9" src="img/ml/backprop-back-page7.svg" >
+      </div>
+
+    </div>
+  </div> <!-- minipage container -->
+  <span class="fragment ghost-step" data-fragment-index="5" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="7" aria-hidden="true"></span>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Backpropagation [3]</h2>
+  <ul>
+    <li>We just need the (directed, acyclic) <i>computation graph</i> in which each node $t$ has its $I(t)$ and $O(t)$
+    </li>
+    <li>In practice we usually organize nodes in $T$ layers; compute forward pass (caching activations)
+      \[
+      \begin{align}
+      \class{rj-hide-0}{\mathbf{a}_1}
+      &
+      \class{rj-hide-0}{=\ip{\mathbf{W}_1}{\vx}+\mathbf{b}_1\qquad\qquad}
+      &
+      \class{rj-hide-0}{\mathbf{z}_1}
+      &
+      \class{rj-hide-0}{=h(\mathbf{a}_1)}
+      \\
+      \class{rj-hide-0-1}{\mathbf{a}_2}
+      &
+      \class{rj-hide-0-1}{ =\ip{\mathbf{W}_2}{\mathbf{z}_1}+\mathbf{b}_2}
+      &
+      \class{rj-hide-0-1}{\mathbf{z}_2}
+      &
+      \class{rj-hide-0-1}{=h(\mathbf{a}_2)}
+      \\
+      \class{rj-hide-0-2}{\ldots}\\
+      \class{rj-hide-0-2}{\mathbf{a}_{T-1}}
+      &
+      \class{rj-hide-0-2}{ =\ip{\mathbf{W}_{T-1}}{\mathbf{z}_{T-2}}+\mathbf{b}_{T-1}}
+      &
+      \class{rj-hide-0-2}{\mathbf{z}_{T-1}}
+      &
+      \class{rj-hide-0-2}{=h(\mathbf{a}_{T-1})}
+      \\
+      \class{rj-hide-0-3}{\mathbf{a}_{T}}
+      &
+      \class{rj-hide-0-3}{=\ip{\mathbf{W}_{T}}{\mathbf{z}_{T-1}}+\mathbf{b}_{T}}
+      &
+      \class{rj-hide-0-3}{\mathbf{z}_{T}}
+      &
+      \class{rj-hide-0-3}{=\mathbf{a}_{T}}
+      \end{align}
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="5">Backward pass: using the backprop equations, using cached $\va$ and $\vz$ for layers above
+      \[d_t\,=\,h'(a_t)\sum_{j\in O(t)}d_jw_{t,j},\qquad
+      \frac{\partial L}{\partial w_{i,t}}\,=\,d_tz_i
+      \]
+
+    </li>
+    <li class="fragment" data-fragment-index="6">For our MLP layers, we have (with some math):
+      \[\ldots\quad
+      \mathbf{d}_{t}\,
+      =\,h'(\mathbf{a}_{t})\ast\left(\mathbf{d}_{t+1}^T\mathbf{W}_{t+1}\right);
+      \qquad\nabla_{\mathbf{W}_{t}}L\,
+      =\,\mathbf{d}_{t}\otimes\mathbf{z}_{t-1}\quad\ldots
+      \]
+      $h'(\mathbf{a})$: element-wise derivative; $\mathbf{u}\otimes\mathbf{v}$: outer product; $\mathbf{u}\ast\mathbf{v}$: element-wise product
+    </li>
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="3" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Modularity of forward/backward computation</h2>
+  <ul>
+    <li> You are unlikely to need to derive and implement backpropagation, since there are so many existing building blocks in PyTorch
+    </li>
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <pre><code class="language-python" data-trim>
+import torch
+import torch.nn as nn
+
+class MLP(nn.Module):
+  def __init__(self, d_in, d_hid, d_out):
+    super().__init__()
+    self.net = nn.Sequential(
+        nn.Linear(d_in, d_hid),
+        nn.ReLU(),
+        nn.Linear(d_hid, d_out),
+        )
+  def forward(self, x):
+    return self.net(x)
+      </code></pre>
+    </div>
+    <div class="minipage" style="width:45%;">
+      <pre class="fragment" data-fragment-index="1"><code class="language-python" data-trim data-noescape>
+loss=loss_fun(net(x),y)
+loss.backward()    	<span data-alert="3-">
+opt.step()
+opt.zero_grad()
+</span>
+      </code></pre>
+
+      <div style="text-align:left" class="fragment" data-fragment-index="2"><span>If only want to eval (no backward pass), can save some space and compute:</span>
+      </div>
+      <pre class="fragment" data-fragment-index="2"><code class="language-python" data-trim>
+with torch.no_grad():
+  pred=self.model(x)
+  loss=self.loss_func(pred,y)
+      </code></pre>
+    </div>
+  </div> <!-- minipage container -->
+  <ul style="margin-top:-40px;">
+    <li class="fragment" data-fragment-index="3">PyTorch's <code class="language-python">autograd</code> will automatically set up gradient (backprop) calculations for almost any forward pass definition!
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Computational graph and autograd</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <pre type=language-python"><code>
+def f(x1, x2):
+  a = x1 * x2
+  y1 = log(a)
+  y2 = sin(x2)
+  return (y1, y2)
+def g(y1,y2):
+  return y1 * y2
+      </code></pre>
+
+      <ul>
+	<li>Any <code>torch.Tensor</code> can say <code>requires_grad=True</code> to be attached to the computational graph
+      	</li>
+	<li>Most operations available in <code>torch</code> already have the <code>backward()</code> method defined
+	</li>
+</ul>  
+      
+   </div>
+   <div class="minipage" style="width:50%;">
+     <figure class="attributed-img" data-attrib="source:Pytorch.org">
+       <img src="img/ml/comp-graph.png" height="700px">
+     </figure>
+
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Modular multi-layer networks</h2>
+  <ul>
+    <li>A (more) general definition of a multi-layer network: for each layer, define the parametric forward function
+      \[\mathbf{a}_l\,=\,F_l\left(\mathbf{z}_{l-1};\btheta_l\right)\]
+      and the activation
+      \[\mathbf{z}_l\,=\,h\left(\mathbf{a}_l\right)\]
+    </li>
+    <li>The last layer will (presumably) yield predicted output $\mathbf{f}(\vx)$
+      <ul><li>Note: softmax is part of the loss function, not the network!
+      </li>
+      </ul>
+    </li>
+    <li>Most of the time, if your definition of $F_l$ uses existing building blocks in PyTorch, it will be
+      <span data-click="enlarge" style=" --pop-left:45%; --pop-top:50%; --pop-width:300px;">
+	<i>automatically</i>
+	<template data-role="pop">
+	  It might be inefficient or buggy, but probably it will be OK!
+	</template>
+      </span>
+      endowed with the corresponding backward computation
+    </li>
+    <li>When you really need something bespoke, you write your own <code>backward</code> method
+    </li>
+    <li>Then you need to define a (differentiable) loss function, yielding a scalar output; <br>
+      <code>loss=loss_func(model(x),y)</code>
+      will compute the feed-forward pass of the model on $\vx$, compute the loss relative to the ground truth $\vy$ , and keep track of all you need for backpropr
+    </li>
+    <li>Finally, <code>loss.backward()</code> will compute the gradient; you then use it to update the model. More on this soon!
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">So why is "deep learning" so successful?</h2>
+  <!-- - algebra and GPU; learn features instead of ideation; hierarchy -- very difficult to design by hand; double descent and opverparameterization -- compute+data helps a lot-->
+  <ul>
+
+    <li>A good fit to the hardware advances in recent decades: GPUs, faster memory, and generally more affordable fast compute and storage
+    </li>
+    <li>Modular and general: a relatively small number of architectures, and more or less a universal learning algorithm (gradient descent), work very well for a huge number of problems and domains
+    </li>
+    <li>Good software: increasingly standardized frameworks.
+      <ul>
+	<li>Currently dominant: PyTorch, JAX
+	</li>
+	<li>Prevalent at some point in the past: Caffe, Theano, TensorFlow
+	</li>
+      </ul>
+      <li>Autograd makes it incredibly easy to build and experiment with network archtectures
+      </li>
+      <li>Standard architectures and software makes it incredibly easy to share models and adapt them as needed
+      </li>
+      <li>Finally: there may be some fundamental properties of massively over-parametrized models that enable good learning and generalization. We don't quite understand that yet.
+      </li>
+    </li>
+  </ul>
+</section>
+
+
+<section data-section="Convnets">
+  <h2 class="slide-title">Convolutional networks: motivation</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li>A prototypical "vision" task (1970s-2010s): image classification, e.g., MNIST
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img src="img/mnist.jpg" height="200px">
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    </li>
+    <li>Consider a linear classifier applied to a 32x32 pixel (color) image: $\vx\in\mathbb{R}^{3072}$
+      <img src="img/conv/image-linear.svg" height="180px">
+    </li>
+    <li>It does not respect spatial structure in the image (what if we permute the pixels in a fixed way?)
+    </li>
+    <li>More importantly: suppose we have a hidden layer with 100 units. Then we need 307,300 parameters for that layer!
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;" class="fragment" data-fragment-index="1">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Idea: use a <i>local</i> unit that only sees, say, 5x5 window of pixels
+      	</li>
+	<li>76 parameters (5x5x3+1) -- but seems like we'd need to tile the whole image with these?
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/conv/local-unit.svg" height="280px">
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Convolutional map</h2>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Convolutional layer: a single filter (aka kernel) is
+	  <span data-click="enlarge" style=" --pop-left:45%; --pop-top:50%; --pop-width:300px; ">
+	    <i>convolved</i>
+	    <template data-role="pop">
+	      <div>Technically, convolution implies flipping the filter, otherwise it's "correlation; in practice the distinction is irrelevant
+	      </div>
+	    </template>
+	  </span>
+	  with the image
+      	</li>
+	<li>The output is a <i>feature map</i>: if input (image, or the output of a previous layer) is $W$x$H$, filter is $k$x$k$, the map is $(W-k+1)$x$(H-k+1)$
+      	</li>
+	<li class="fragment" data-fragment-index="1">We can make the map same size as input by <span data-click="enlarge" style="--pop-top:60%; --pop-width:400px; ">
+	  <i>padding</i>
+	  <template data-role="pop">
+	    <div>
+	      Normally $k$ is odd, and we pad by $\frac{k-1}{2}$
+	    </div>
+	  </template>
+   	</span> (typically with zeros)
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:1em; --row-gap:.35em;
+		  ">
+	<img src="img/conv/convolution.gif" height="500px">
+	<img class="fragment" data-fragment-index="1" src="img/conv/conv-padding.gif" height="400px">
+
+	<span> </span>
+	<span class="fragment" data-fragment-index="1">Padding=1</span>
+      </div> <!-- tabular -->
+
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">When the input map has $C$ <i>channels</i> (number of feature values computed per spatial location) the filter is $k$x$k$x$C$; convolution is still only spatial
+	</li>
+	<li class="fragment" data-fragment-index="3">When the input the image, $C$=3 for the three colors (RGB); what might $C$ be for the input to subsequent layers?
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:45%;">
+      <img class="fragment" data-fragment-index="2" src="img/conv/conv-map.svg" height="300px">
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Convolutional layers</h2>
+  <ul>
+    <li>Suppose we have a map of size $W$x$H$x$C$, and $m$ filters, each $k$x$k$x$C$;<br>
+      also suppose we pad this map to get same size output of convolution
+    </li>
+    <li>Convolving each with the input will produce a $W$x$H$x1 map; stacking them together will yield a $W$x$H$x$m$ output feature
+      <span data-click="enlarge" style="--pop-left:40%; --pop-top:60vh; --pop-width:200px; ">
+	<i>tensor</i>
+	<template data-role="pop">
+	  <div>
+	    If we have a <i>batch</i> of $B$ images, everything becomes 4D; $B$x$W$x$H$x$C$ input gets mapped to $B$x$W$x$H$x$m$ output
+	  </div>
+	</template>
+      </span>
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>The parameters for a convolutional layer with $m$ filters, sitting on top of a $C$-channel input:<br>
+	  A $C$x$k$x$k$x$m$ tensor of weights, and a $m$-dim bias vector
+      	</li>
+ 	<li class="fragment" data-fragment-index="1">What about activation functions? These are applied per-element (typically a ReLU)
+      	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/conv/conv-map-6.svg" height="400px">
+
+      <img class="fragment" data-fragment-index="1" src="img/conv/conv-relu.svg" height="300px">
+    </div>
+
+  </div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">Convolutional layers</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:65%;">
+      <ul>
+	<li>Can we have $k=1$? <br>
+	  <span class="fragment" data-fragment-index="1">
+	    Suppose we have $m$ 1x1 filters; each filter is just a vector in $\mathbb{R}^C$.
+	  </span>
+      	</li>
+	<li class="fragment" data-fragment-index="2">At each position, we compute $m$ dot products in $\mathbb{R}^C$ and stack them into outputs in $\mathbb{R}^m$.
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:35%;">
+      <img src="img/conv/conv-k1.svg" height="300px">
+    </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li class="fragment" data-fragment-index="3">What about $W$x$H$ "filter"? If we don't pad, this is just an MLP!
+    </li>
+    <li class="fragment" data-fragment-index="4">What if we remove the activation functions? [thought exercise]
+    </li>
+    <li class="fragment" data-fragment-index="4"> So: a sequence of conv layers, followed by ReLU, is a convolutional network (convnet). It can be learned with gradient descent (using backpropagation to compute the gradient).
+    </li>
+    <li class="fragment" data-fragment-index="5">How do we get an output (e.g., for the 10 MNIST classes)? An issue: the feature map is a tensor, and we just want a vector $\mathbf{f}\in\mathbb{R}^{10}$
+    </li>
+    <li class="fragment" data-fragment-index="6">Solution: A "fully connected layer" after the last conv layer, with 10 units. Flatter the feature map to make it a vector, too (like in MLP).
+    </li>
+    <li class="fragment" data-fragment-index="7">Suppose the last conv layer is $C$x$W$x$H$, then we need $10\cdot C\cdot W\cdot H+10$ parameters for the fully connected layer.
+    </li>
+  </ul>
+
+</section>
+
+
+
+
+
+<section>
+  <h2 class="slide-title">Receptive field vs. depth in convnets</h2>
+  <ul>
+    <li>Receptive field of a unit in a network: the area in the input that affects the unit's activation
+    </li>
+    <li>Borrowed from visual RFs in neuroscience, usually measured in arcs of visual field. There are other types of RFs, e.g., spectro-temporal auditory RFs that respond to certain frequency and time (ltency) ranges.
+    </li>
+  </ul>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:55%;">
+      <ul>
+	<li>We can consider the RF in the layer input,
+	  <span class="fragment" data-fragment-index="1">and in the (original) network input (the image)</span>
+	</li>
+	<li class="fragment" data-fragment-index="2">The RF size grows with layers, as long as $k>1$, but very slowly!
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:45%;">
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:2; --col-gap:0.1em; --img-height:4.2cm;">
+	<img src="img/conv/receptive-field.svg" style="--img-height:3.6cm">
+	<img class="fragment" data-fragment-index="1" src="img/conv/receptive-field-depth.svg" style="--img-height:4.5cm">
+      </div> <!-- tabular -->
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:45%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">Solution: strides
+	</li>
+	<li class="fragment" data-fragment-index="3">Originally common: <i>pooling</i> layers (max or average over a window), e.g., 2x2 window with stride 2
+	</li>
+	<li class="fragment" data-fragment-index="4">More common today: strided convolutions
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:55%;">
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em;--img-height:9cm;">
+	<figure class="attributed-img fragment" data-fragment-index="3" data-attrib="Image: Daniel Voigt Godoy">
+	  <img src="img/conv/max-pool.png">
+	</figure>
+
+	<img class="fragment" data-fragment-index="4"  src="img/conv/conv-stride.gif" style="--img-height:300px">
+
+	<div class="fragment caption" data-fragment-index="3">Max pooling
+       	</div>
+	<div class="fragment caption" data-fragment-index="4">Strided conv
+	</div>
+      </div> <!-- tabular -->
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="4">Now the receptive field grows with depth much faster!
+    </li>
+  </ul>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Brief history of convnets</h2>
+  <!-- -1989: LeNet -- 2 conv layers, 16x16 input (12 and 12 filters), fc 30 units, 10 classes (digits); backprop; tanh; 7291 train images;
+  -->
+  <ul>
+    <li>1979: Neocognitron (Fukushima) -- convolutional network, but no backprop (unsupervised learning of filters)
+    </li>
+    <li>1989: LeNet (LeCun et al.): 2 conv layers, 12 filter per layer; fully connected layer with 30 units; <code>tanh</code> activations; trained with backprop on 7291 images.
+    </li>
+    <li class="fragment" data-fragment-index="1">1995: LeNet-5 achieves state of the art classification on handwritten digits. 2 conv layers (with sub-sampling), 3 FC layers, sigmoid activations. More or less like today's convnets!
+    </li>
+    <li class="fragment" data-fragment-index="3">2012: AlexNet wins ImageNet challenge. 5 conv layers, 2 FC layers; ReLU; <i>model parallellism</i> (due to hardware limits). Trained on 1.3M images, 1000 classes.
+    </li>
+    <li class="fragment" data-fragment-index="3">2014: VGG16. <span data-click="enlarge" style="--enlarge-scale:1.0">Small kernels<template data-role="pop"> Recall
+      <img src="img/conv/receptive-field-depth.svg" height="120px">
+      So instead of a 7x7 conv we can stack three 3x3 conv layers; 27$C$ weights instead of 49$C$. More importantly, standardizes design; one less hyperparameter to tune. Instead focus on depth. 
+    </template></span>, more depth.
+    </li>
+  </ul>
+
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:3; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:8cm;">
+
+    <img class="fragment" data-fragment-index="1" src="img/arch/lenet5.jpeg">
+    <img class="fragment" data-fragment-index="2" src="img/arch/alexnet.jpg">
+    <img class="fragment" data-fragment-index="3" src="img/arch/vgg-16.png">
+
+    <span class="fragment caption" data-fragment-index="1">LeNet-5</span>
+    <span class="fragment caption" data-fragment-index="2">AlexNet</span>
+    <span class="fragment caption" data-fragment-index="3">VGG-16</span>
+
+  </div> <!-- tabular -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="4">2015: <span data-alert="4"> ResNet&hellip;</span>
+    </li>
+  </ul>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Computation in convnets</h2>
+  <ul>
+    <li>Some data for AlexNet:
+      <img src="img/alexnet-compute.svg" height="600px">
+    </li>
+  </ul>
+
+
+  <ul>
+    <li>Most parameters are in fully-connected layers
+    </li>
+    <li>Most computation and memory is in conv layers
+    </li>
+  </ul>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Regularization: dropout</h2>
+  <ul>
+    <li>Concern: "co-adaptation"; units over-relying on other units and hyper-specializing (thus overfitting)
+    </li>
+    <li>Consider: we want to detect cats. Each unit in a huge network learns to recognize one of 1000 cats in the data set.
+    </li>
+    <li>Solution: random <span data-click="enlarge"><template data-role="pop">Not to be confused with DropConnect, in which random <i>weights</i> are zero out (severing the synaptic connections, as it were); dropout zeroes out entire rows in weight matrices.<br>DropConnect is not widely used today. </template><i>dropout</i></span>
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+
+	<li>In each mini-batch, zero out activations of a unit with probability $p$, so it can not contribute to the
+      	</li>
+	<li>No dropout at test time; so we need to scale the activations by $p$ to match the expected level in the receiving unit
+      	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <figure class="attributed-img" data-attrib="Matt Krause">
+
+	<div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:400px;">
+	  <img src="img/arch/dropout-full.png">
+	  <img src="img/arch/dropout-a.png" class="fragment" data-fragment-index="1">
+	  <img src="img/arch/dropout-b.png" class="fragment" data-fragment-index="2">
+	</div>
+      </figure>
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li>Interpretation: with dropout we sample each time from a huge pool of networks, and are learning an <i>ensemble</i> of models with shared parameters
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Regularization: batch normalization</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+
+      <ul>
+	<li>A concern: with small mini-batches, their statistics (1st and 2nd momentum) will be inconsistent, making SGD harder
+	</li>
+	<li>Solution: force consistency, by <i>batch normalization</i>
+      	</li>
+	<li>Compute activation (feature) stats for the unit $f$ across minibatch (across samples and, in a convnet, across spatial dimensions)
+	  \[\mu_f\,=\,\frac{1}{m}\sum_i f_i,\qquad
+	  \sigma^2_f\,=\,\frac{1}{m}\sum_i \left(f_i-\mu_B\right)^2
+	  \]
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <figure class="attributed-img" data-attrib="Image: Matthew Stewart">
+	<img src="img/ml/covariate-shift.jpg" height="400px">
+      </figure>
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+
+    <li>Normalize (like $z$-scoring in statistics)
+      \[\widehat{f}_i\,=\,\frac{f_i-\mu_f}{\sqrt{\sigma^2_f}+\sigma}\]
+    </li>
+    <li>Finally, use (learnable) per-unit "location and scale" parameters $\gamma_f$, $\beta_f$ instead of original $f$
+      \[\tilde{f}_i\,=\,\gamma_f\widehat{f}_i+\beta_f\]
+    </li>
+  </ul>
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Image classification</h2>
+  <ul>
+    <li>Often we want a single output for the input image
+    </li>
+    <li>Could be scalar or vector, but not associated with image spatial dimensions
+      <ul>
+	<li>Classification: normal/abnormal patterns; species identification; material recognition;&hellip;
+      	</li>
+	<li>Regression: age of a specimen; probability distribution of outcomes; set of angles for estimated body pose
+	</li>
+      </ul>
+
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:3; --col-gap:.6em; --row-gap:.35em;
+		  --img-height:6cm;">
+
+      </div> <!-- tabular -->
+
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li class="fragment" data-fragment-index="1">Approach 1:  attach a fully connected layer to (flattened) conv map. <br>
+	  <ul>
+	    <li>Good: can be sensitive to spatial patterns (location of things int he image)
+      	    </li>
+	    <li>Bad: lots of parameters; requires resizing inputs to fixed size so the last convent comes out at the expected size
+
+	    </li>
+	  </ul>
+	</li>
+      </ul>
+
+
+   </div>
+   <div class="minipage" style="width:30%;">
+     <img src="img/ml/fc-layer.png" height="300px" class="fragment" data-fragment-index="1">
+
+   </div>
+</div> <!-- minipage container -->
+
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+  <li class="fragment" data-fragment-index="2">Approach 2: use <i>global pooling</i> (average or max) to collapse $C$x$W$x$H$ conv map to a vector in $\mathbb{R}^C$<br>
+    <ul> 
+      <li>Good: much more economical; in principle can accept variable size images
+      </li>
+      <li>Bad: may be less sensitive to spatial patterns (mitigated when the RF of units is large!)
+      </li>
+    </ul>
+  </li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:30%;">
+      <figure class="attributed-img fragment" data-fragment-index="2" data-attrib="Image: Manuel Cuevas">
+	<img src="img/ml/global_average_pooling.png" height="300px">
+      </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Predicting label maps</h2>
+  <ul>
+    <li>Often we want to predict something for every pixel in the input image
+    </li>
+    <li>Example: "semantic segmentation" -- assign to every pixel a class
+    </li>
+    <li>Suppose we have $k$ pixel classes
+    </li>
+    <li>Make the last conv layer have $k$ filters; resize (upsample) the map to original resolution
+    </li>
+    <li>Compute the loss as the average loss per pixel
+    </li>
+
+
+    <div class="tabular tabular--grid two-row-captions proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		--img-height:8.5cm;">
+      <img src="img/arch/deeplabv3.png" style="--img-height:400px">
+      <img class="fragment" data-fragment-index="2" src="img/conv/conv-dilated.gif">
+      <span class="caption fragment" data-fragment-index="1">DeepLabV3, Google</span>
+      <span class="caption fragment" data-fragment-index="2">Dilated convolution</span>
+
+    </div> <!-- tabular -->
+
+    <li style="margin-top:30px;" class="fragment" data-fragment-index="1">If the last few layers use 1x1 convolutions, we basically have MLP (same one across locations) classifying pixels from the features computed by the last "real" conv layer
+    </li>
+    <li class="fragment" data-fragment-index="2">Problem: resizing 4x or 8x really loses information. One solution: dilated (a-trous) convolutions
+    </li>
+    <li class="fragment" data-fragment-index="2">Combines rapid growth of RF with retaining full resolution
+    </li>
+  </ul>
+
+
+</section>
+
+
+
+
+
+<section>
+  <h2 class="slide-title">Skip-layer connections</h2>
+
+  <ul>
+    <li>Recall the layerwise computation: $\va_t\,=\,F\left(\vz_{t-1}\right)$
+    </li>
+    <li>We can forward activations $\vz_t$ to layers beyond $t+1$; all we need is a graph with no cycles. E.g., make a layer directly look not only at the layer before it but also the layer before that (two layers back):
+      \[
+      \va_t\,=\,F\left(\vz_{t-1},\,\class{rj-alert-1}{\vz_{t-2}}\right)
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="1">Everything in our backprop (and autograd) machinery still works fine!
+    </li>
+    <li class="fragment" data-fragment-index="2">Why would we want to do it?
+    </li>
+    <li class="fragment" data-fragment-index="2">One reason: features computer earlier may be directly useful in subsequent layers. This allows us to <i>add</i> information with new layers, instead of aggregating it
+    </li>
+    <li class="fragment" data-fragment-index="3">A technical reason: it makes it easier to train deeper networks
+    </li>
+    <li class="fragment" data-fragment-index="3">The vanishing gradient problem: gradients in earlier layers account for exponentially increasing number of paths. This reduces the gradient magnitude making it hard(er) to train very deep networks.
+    </li>
+
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+
+</section>
+
+<section>
+  <h2 class="slide-title">U-Net</h2>
+  <ul>
+    <li>U-Net: U-Net: Convolutional Networks for Biomedical Image Segmentation, by Ronneberger et al., 2015 (120k citations)
+    </li>
+    <li> First, reduce resolution (trade spatial dimensions for channels). This is a kind of <i>encoder</i>
+    </li>
+  </ul>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:47%;">
+      <ul>
+
+	<li>Then start recovering resolution and reducing channels -- <i>decoding</i>, ultimately yielding an image-like object with label per pixel)
+	</li>
+	<li> Use skip-connections from corresponding resolution in the encoder arm
+
+	</li>
+	<li class="fragment" data-fragment-index="1">Popular today because of its use in image diffusion models [later]
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:53%;">
+      <img src="img/arch/unet.svg" height="800px">
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">U-Net variants</h2>
+  <ul>
+    <li>Many variants of U-Net in different contexts.
+    </li>
+    <li>Example (Wang, Koch et al., Nature 2020): using U-Net for "inverse problems" like super-resolution
+    </li>
+    <img src="img/vision/koch-unet.webp" height="600px">
+    <li class="fragment" data-fragment-index="1">Predict intermediate outputs (super-resolution at different scales), attach additional losses to those.
+    </li>
+    <li class="fragment" data-fragment-index="2">Technique known as "deep supervision"; originally proposed to help train deep networks. Not necessary today (will see soon why) but may help convergence speed
+    </li>  
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Training very deep networks</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:65%;">
+      <ul>
+	<li>"Very deep" is an evolving notion; 7 in 2012, 19 in 2015, 150-300 (and sometimes 1000) today
+	</li>
+	<li>Benefits of depth: better performance!
+      	</li>
+	<li>Cost and benefit: need/can use more data
+	</li>
+	<li>Cost of depth: compute, memory, and time
+      	</li>
+	<li class="fragment" data-fragment-index="1">Another cost: turns out it is increasingly difficult to optimize deep networks
+	</li>
+      </ul>
+
+      <img src="img/arch/resnet-errors-without.png" height="350px" class="fragment" data-fragment-index="1">
+
+    </div>
+    <div class="minipage" style="width:35%;">
+      <figure class="attributed-img shift-left" data-attrib="He et al.">
+	<img src="img/arch/convnet-depth-history.png" height="700px">
+      </figure>
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="2">Not an overfitting issue (training error is high as well as test)
+    </li>
+    <li class="fragment" data-fragment-index="3">Clearly a problem of optimization: a deep network that just adds a bunch of pass-through (identity) layers should do as well as a shallow one
+    </li>
+  </ul>
+
+</section>
+
+
+
+
+
+<section>
+  <h2 class="slide-title">Residual networks</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:80%;">
+      <ul>
+	<li>Intuition: let's help the network by incorporating identity into the network
+	</li>
+	<li>A skip-layer connection, but with sum instead of concatenation
+      	</li>
+	<li>A <i>residual block</i>; chaining these creates a path from output/loss directly to each layer
+      	</li>
+	<li class="fragment" data-fragment-index="1">
+	  With very deep networks (50, 100 layers) it is helpful to use <i>bottleneck</i> residual blocks, using 1x1 convolutions to reduce computation
+      	</li>
+	<li class="fragment" data-fragment-index="1">Within each block: reduce dimension, convolve, lift back
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:20%;">
+      <img src="img/arch/resnet-block-basic.png" height="200px">
+
+      <img class="fragment" data-fragment-index="1"  src="img/arch/resnet-block-bottleneck.png" height="250px">
+    </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+
+      <ul>
+	<li class="fragment" data-fragment-index="2">
+	  This resolves the optimization difficulty; now (especially with more data) deeper networks beat shallower ones
+      	</li>
+	<li class="fragment" data-fragment-index="2">Many subsequent innovations but the fundamental approach endures today (including in transformers)
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img fragment shift-left" data-fragment-index="2" data-attrib="source:He et al.">
+	<img src="img/arch/resnet-errors-with-imagenet.png" height="320px">
+      </figure>
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+
+
+
+<section>
+  <h2 class="slide-title">ResNet architecture(s)</h2>
+  <div data-click="enlarge-persist"
+       data-pop-max-width="90vw" data-pop-max-height="80vh"
+       style="display:inline-block; --pop-width:85vw">
+    <img
+      src="img/arch/resnet-arches.png" height="700px">
+    <template data-role="pop">
+      <div class="zoom-scroller">
+	<img src="img/arch/resnet-arches.png"
+             style="max-width:none; width:100%; height:auto;">
+      </div>
+    </template>
+  </div>
+  <ul>
+    <li>No pooling layers; all resizing done by (learned) strided convolutions
+    </li>
+    <li>Number of channels is doubled every time resolution is halved
+    </li>
+    <li>The only fully connected layers is the classifier
+    </li>  
+</ul>  
+</section>
+
+
+
+
+<section data-section="Training / optimization">
+  <h2 class="slide-title">Review: SGD</h2>
+  <ul>
+    <li>Recall: the training loss is a sum over example losses
+      $$
+      \begin{align}
+      L\left(\butheta;\left\{(\vx_i,\vy_i)\right\}\right)\,&=\,\frac{1}{N}\sum_{i=1}^N \class{rj-enlarge-persist rj-popover-losspop}{L\left(\butheta;\vx_i,\vy_i\right)}\\
+      \class{rj-hide-0-0}{
+      \frac{\partial}{\partial \butheta}L\left(\butheta;\left\{(\vx_i,\vy_i)\right\}\right)}&
+      \class{rj-hide-0-0}{\,=\,
+      \frac{1}{N}\sum_{i=1}^N \frac{\partial}{\partial \butheta}L\left(\butheta;\vx_i,\vy_i\right)
+      }
+      \class{rj-hide-0-1}{
+      \,\approx\, \frac{\partial}{\partial \butheta}L\left(\butheta;\vx_\class{rj-alert-3}{j},\vy_\class{rj-alert-3}{j}\right),\qquad \class{rj-alert-3}{j}\sim[N]
+      }
+      \end{align}
+      $$
+    </li>
+  </ul>
+  <template id="losspop">The loss value between the predicted and true label for $\vx_i$\[=L\left(f(\vx_i,\btheta),\vy_i\right)\]</template>
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">Stochastic gradient descent: approximate the training loss gradient by the gradient on a single (randomly picked) example
+      	</li>
+	<li class="fragment" data-fragment-index="4">$L(w)$: the (combined) loss on 3 examples with parameter $w$
+      	</li>
+	<li class="fragment" data-fragment-index="7">We can approximate it by the gradient of a single-example loss $L_i(w)$
+	</li>
+      </ul>
+    </div>
+    <div class="minipage" style="width:50%;">
+      <div class="diagram-stack" style="width: 80%; margin: 0 auto;--stack-img-height:650px">
+	<img class="fragment" data-fragment-index="3" src="img/opt/sgd-n-5.svg">
+	<img class="fragment" data-fragment-index="4" src="img/opt/sgd-n-4.svg">
+	<img class="fragment" data-fragment-index="5" src="img/opt/sgd-n-3.svg">
+	<img class="fragment" data-fragment-index="6" src="img/opt/sgd-n-2.svg">
+	<img class="fragment" data-fragment-index="7" src="img/opt/sgd-n-1.svg">
+	<img class="fragment" data-fragment-index="8" src="img/opt/sgd-n.svg">
+	<img class="fragment" data-fragment-index="9" src="img/opt/sgd-last.svg">
+      </div>
+
+
+    <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+    <span class="fragment ghost-step" data-fragment-index="2"  aria-hidden="true"></span>
+
+
+  </ul>
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Stochastic Gradient Descent: mechanics</h2>
+  <ul>
+    <li>In practice: "mini-batch" SGD
+    </li>
+    <li>Must separate between <br>
+      <span data-alert="1"> "physical"</span> batch size: batch that fits into memory and can be processed at once, and<br>
+      <span data-alert="2">"logical" batch size</span>: set of examples used to accumulate (average) gradient before applying an update
+    </li>
+    <li>In PyTorch, gradient is accumulated until <code>optimizer.zero_grad()</code> operation, usually done right after <code>optimizer.step()</code>
+    </li>
+    <li class="fragment" data-fragment-index="3">Non-trivial interaction between batch size and learning rate
+    </li>
+    <li class="fragment" data-fragment-index="3">Most often, try to make batches as large as possible -- but with very large models and activation maps, often can fit at most a few examples into a batch on a single GPU
+      <ul>
+	<li style="margin-top:20px;">With distributed (multi-GPU) training could have very large batches. Rule of thumb: if $\eta$ works well for small batch, and we switch to $k$ times larger batch, make new LR $k\eta$
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="4">Note: if we need $N$ bytes to store model parameters, we will need $N$ more to keep track of the gradient, and with some optimizers, double or triple that!
+    </li>
+  </ul>
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Distributed training</h2>
+  <ul>
+    <li>Most modern models are trained on multiple GPUs
+      <ul>
+	<li>Multiple (typically 8) GPUs on a single server; inter-GPU communication is cheap
+      	</li>
+	<li>Multiple servers; inter-GPU communication is expensive, in time and &dollar;&dollar;
+	</li>
+      </ul>
+    </li>
+  </ul>
+
+  <figure class="fragment attributed-img" data-attrib="Phillip Lippe"
+	  data-fragment-index="1">
+    <img  src="img/opt/parallelism.svg" height="380px">
+  </figure>
+
+  <ul>
+    <li class="fragment" data-fragment-index="1">Data parallelism: batch per GPU, gradient is aggregated. Only need to communicate the gradient.
+    </li>
+    <li class="fragment" data-fragment-index="2">Model parallelism: a GPU holds a subset of layers; need to communicate activations, backprop signal.
+    </li>
+    <li class="fragment" data-fragment-index="3">"Tensor parallelism": model is split across feature dimensions (horizontal vs. vertical). Can help when a single layer is too big for one GPU. Even more communication; usually only done within a node
+    </li>
+    <li class="fragment" data-fragment-index="3">Training modern, very large models often combines different parallelism strategies
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Distributed training practice</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li> PyTorch has multiple libraries for distributed training implementing various strategies. My favorite: Lightning Fabric
+      	</li>
+	<li>Single-node training is really straightforward;<br>
+	  Multi-node training gets tricky quickly, especially without a fancy connection hardware (InfiniBand, direct GPU-to-GPU connections with NVLink, etc.)
+	</li>
+      </ul>
+
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/opt/fabric.png" height="320px" style="display:block;margin-left:0;margin-right:auto;">
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Effect of step size</h2>
+  <ul>
+    <li>The optimization surface of deep learning models tends to be difficult
+    </li>
+    <li>Plateaus: very slow change, small gradient, hard to make progress
+    </li>
+  </ul>
+
+
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+	      --img-height:8cm;">
+    <img src="img/opt/levine-surface.png">
+    <figure class="attributed-image" data-attrib="Sergey Levine">
+      <img src="img/opt/levine-problems.svg"></figure>
+  </div> <!-- tabular -->
+  <ul>
+    <li>Saddle points: hard to escape because only a small subset of directions lead to improvement
+    </li>
+    <li>Local optima: always a concern with non-convex functions -- but seems to not be a huge problem for (large) neural networks
+    </li>
+  </ul>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Momentum</h2>
+  <!-- -reformulate as velocity (Justin Johnson lec) -->
+  <ul>
+    <li>We want to compute the step $\mathbf{u}^t$ to update $\vw^{t+1}\,=\,\vw^t\,-\,\lambda \mathbf{u}^t$
+    </li>
+    <li> Calculate loss gradient at current value $\mathbf{g}^t\,=\,\nabla_{\vw} L\left(\vw^t\right)$
+    </li>
+    <li class="fragment" data-fragment-index="2"> Naive gradient descent update: $\mathbf{u}^t\,=\,\lambda \mathbf{g}^t$
+    </li>
+  </ul>
+
+  <div class="minipage-container fragment" style="align-items: center;" data-fragment-index="3">
+    <div class="minipage" style="width:35%;">
+      <ul>
+	<li> Momentum: hedge between the previous update $\mathbf{u}^{t-1}$ and the current gradient direction
+	</li>
+      </ul>
+      \[\mathbf{u}^t\,=\,\mu \mathbf{u}^{t-1}\,+\,(1-\mu)\mathbf{g}^t
+      \]
+
+    </div>
+    <div class="minipage" style="width:65%;">
+      <iframe
+	src="momentum-demo.html"
+	style="display:block;margin:0 auto; width:1200px;;height:400px;border:0;min-height: 420px;"
+	loading="lazy"
+	scrolling="no"
+      ></iframe>
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="5"> Nesterov's accelerated gradient: consider $\vw'\,=\,\vw^t+\alpha\mathbf{g}^{t-1}$ (look-ahead), then make a step based on the gradient computed <i>there</i>
+      <div style="margin-top:-0.8em">
+	\[\mathbf{u}^t\,=\,\nabla_{\vw}L\left(\vw^t+\alpha\mathbf{g}^{t-1}\right)
+	\]
+      </div>
+    </li>
+  </ul>
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Adaptive learning rate: RMSprop</h2>
+  <ul>
+    <li>Intuition: different parameters (dimensions of the gradient) change at different paces, among themselves and over the run of optimization
+    </li>
+    <li>Idea: adjust the step size dynamically per parameters
+    </li>
+    <li>RMSProp (source: a slide by Geoff Hinton): keep the running average of the (squared) gradient values
+      \[\mathbf{s}^{(t)}\,=\,\beta \mathbf{s}^{(t-1)}\,+
+      \,\left(1-\beta\right)\left(\nabla L\left(\btheta^{(t)}\right)\right)^2
+      \]
+      (per-element square); $\beta$ is the decay factor.
+    </li>
+    <li>Normalize the update (per dimension)
+      \[\btheta^{t+1)}_k\,=\,\btheta^{(t)}_k-\eta
+      \frac{\nabla L\left(\btheta^{(t)}\right)}{\sqrt{\mathbf{s}^{(t)}}}
+      \]
+    </li>
+  </ul>
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Adam optimizer</h2>
+  <ul>
+    <li>Adam (Adaptive moment; Kingma & Ba, 2015, 224k citations): keep (running average) of 1st and 2nd moments
+      \[\begin{align}
+      \mathbf{m}^{(t)}\,&=\,(1-\beta_1)\nabla L\left(\btheta^{(t)}\right)
+      \,+\,\beta_1\mathbf{m}^{(t-1)},\\
+      \mathbf{v}^{(t)}\,&=\,(1-\beta_2)\left(\nabla L\left(\btheta^{(t)}\right)\right)^2
+      \,+\,\beta_1\mathbf{v}^{(t-1)},\\
+      \end{align}
+      \]
+    </li>
+    <li>Apply bias correction
+      \[ \widehat{\mathbf{m}}^{(t)}\,=\,\frac{\mathbf{m}^{(t)}}{1-\beta_1^t},
+      \quad
+      \widehat{\mathbf{v}}^{(t)}\,=\,\frac{\mathbf{v}^{(t)}}{1-\beta_2^t}
+      \]
+      (mostly relevant for small $t$)
+    </li>
+    <li>Weight update ($\bepsilon$ is a vector of small numbers to avoid NaNs):
+      \[\btheta^{(t)}\,=\,\btheta^{(t-1)}\,-\,\eta
+      \frac{\widehat{\mathbf{m}}^{(t)}}
+      {\sqrt{\widehat{\mathbf{v}}^{(t)}}+\bepsilon}
+      \]
+    </li>
+    <li>Recommended (default) values: $\beta_1=0.9$, $\beta_2=0.999$, $\eta$ around 0.001 (but that may <span data-click="enlarge" style="--enlarge-scale:1.0">depend<template data-role="pop">  <img src="img/opt/karpathy-tweet.png" height="150px">
+</template></span> on the loss function); $\epsilon=10^{-8}$
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="slide-title">Learning rate scheduling</h2>
+  <ul>
+    <li>Learning rate $\eta$ can make a big difference<br>
+      (more important with SGD+momentum, but matters for Adam, too)
+    </li>
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em;
+		--img-height:9cm;">
+      <img src="img/opt/levin-rates.svg">
+      <img class="fragment" data-fragment-index="1" src="img/opt/alexnet-rates.jpeg">
+    </div> <!-- tabular -->
+    <li class="fragment" data-fragment-index="1">Usually use a LR <i>scheduler</i> to respond to changing optimization dynamics
+    </li>
+    <li class="fragment" data-fragment-index="1">Typical schedule until recently: start with higher LR (maybe 0.01); reduce by a factor of 5 or 10 -- either every $k$ epochs, or based on performance (training loss plateau)
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Common schedule recently, with transformers, and especially LLMs: linear warmup followed by cosine-shaped decay
+      	</li>
+	<li class="fragment" data-fragment-index="3">Most robust (and most expensive): adaptive scheduling based on validation performance
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:30%;">
+      <img class="fragment" data-fragment-index="2" src="img/opt/lr-warmup-cosine.jpg" height="280px">
+    </div>
+  </div> <!-- minipage container -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Review: Double descent</h2>
+  <ul>
+    <li>Classical statistic/ML view: bias-variance tradeoff says that with limited data, bigger models (more features) will hurt test error (high variance)
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <img src="img/bias-variance.svg" style="width: 80%;" class="fragment" data-fragment-index="1">
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/double-descent.svg" style="width: 80%;" class="fragment" data-fragment-index="2">
+    </div>
+  </div>
+  <ul>
+    <li class="fragment" data-fragment-index="2">
+      Double descent phenomenon in modern deep learning: after an initial hump, bigger models recover!
+    </li>
+  </ul>
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Summary: optimization</h2>
+  <ul>
+    <li>You will almost surely use SGD training for anything you train
+    </li>
+    <li>If not sure: use Adam, <code>torch.optim.Adam</code> with default parameters and default initial learning rate
+    </li>
+    <li>Probably as good as Adam (but harder to tune, and possibly a bit inferior with transformers):<code>torch.optim.SGD</code> (with momentum)
+    </li>
+    <li>If not sure: use fixed LR reduction scheduler<br>
+      <code>torch.optim.lr_scheduler.StepLR</code>
+      <ul>
+	<li>If can afford/know how to: consider <br>
+	  <code>torch.optim.lr_scheduler.ReduceLROnPlateau</code>
+      	</li>
+	<li>Another scheduler to consider: <br><code>torch.optim.lr_scheduler.CosineAnnealingWarmRestarts</code>
+	</li>
+      </ul>
+    </li>
+    <li>Monitor your training loss; wandb.ai (Weights & Biases) is a good platform for that
+    </li>
+    <li>Be patient. It is not uncommon to get slow but meaningful benefit from running 10x if you have time and budget
+    </li>
+  </ul>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Knowledge distillation</h2>
+  <ul>
+    <li>Student-teacher training: train a (larger, expensive) teacher network;<br>
+      Then train a (smaller, cheaper) student network to <span data-click="enlarge" style="--enlarge-scale:1.0">mimic<template data-role="pop">Important details:<ol>
+      <li> Use a temperature to flatten teacher's softmax,
+	\[\tilde{y}_c^t\,=\,\exp(f^t_c/\tau)/\sum_j\exp(f^t_j/\tau)\]
+      </li>
+      <li>Actual student loss is a weighted combination of cross-entropy with teacher's predictions and actual (hard) ground truth labels
+	\[L(\widehat{\vy}^s,\tilde{\vy}^t,\vy)\,=\,-\alpha\sum_c\tilde{y}^t_c\log\widehat{y}^s_c\,-\,\beta\sum_cy_c\log\widehat{y}^s_c  \]
+      </li>
+      </ol></template></span> the teacher's softmax
+    </li>
+  </ul>
+  <img src="img/ml/student-teacher.png">
+  <ul>
+    <li>Sometimes the student reaches and even overtakes the teacher
+    </li>
+    <li>For reasons not entirely understood, it is usually easier to train the student this weay than to train the same architecture directly
+    </li>
+  </ul>
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Model ensembles</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+
+      <ul>
+	<li>Main idea: maintain a number of models $e^1,\ldots,e^k$ that specialize in different  areas of the input space ("experts")
+	</li>
+	<li class="fragment" data-fragment-index="4">Also maintain a "gating network" $g$ that judges how good different expert would be for a given $\vx$, expressed in weights $\vw\in[0,1]^k$
+      	</li>
+	<li class="fragment" data-fragment-index="5">The outputs of the experts are combined:
+	  $\widehat{\vy}\,=\,\sum_jw_j\widehat{y}^j$
+      	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="diagram-stack" style="width: 80%; margin: 0 auto;--stack-img-height:450px">
+	<img class="fragment" src="img/ml/moe-page1.svg" >
+	<img class="fragment" data-fragment-index="1" src="img/ml/moe-page2.svg" >
+	<img class="fragment" data-fragment-index="2" src="img/ml/moe-page3.svg" >
+	<img class="fragment" data-fragment-index="3" src="img/ml/moe-page4.svg" >
+	<img class="fragment" data-fragment-index="4" src="img/ml/moe-page5.svg" >
+	<img class="fragment" data-fragment-index="5" src="img/ml/moe-page6.svg" >
+	<img class="fragment" data-fragment-index="6" src="img/ml/moe-page7.svg" >
+	<img class="fragment" data-fragment-index="7" src="img/ml/moe-page8.svg" >
+	<img class="fragment" data-fragment-index="8" src="img/ml/moe-page9.svg" >
+      </div>
+
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="6">The whole setup is differentiable (or you could use the EM algorithm)
+    </li>
+
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+
+	<li class="fragment" data-fragment-index="7">In modern systems, it is too expensive to run $k$ experts if you will eventually assign many of them low weight; instead there is a "router" $R$ that computes the weights (often as softmax) over experts, and picks the top few to make predictions on $\vx$
+	</li>
+      </ul>
+
+    </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="9" src="img/ml/deepseek-moe.svg" height="400px">
+
+    </div>
+  </div> <!-- minipage container -->
+
+
+</section>
+
+
+
+<!-- the footer (shown unless section class="nofooter";
+
+-->
+<div id="footer-bar" class="footer-bar">
+  <div class="footer-left"></div>
+  <div class="footer-section" id="section-label-overlay"></div>
+  <div class="footer-slide-number" id="slide-number-overlay"></div>
+</div>
+
+
+
+  </div> <!-- slides  -->
+      </div> <!-- reveal  -->
+
+
+
+      <!-- Reveal + plugins -->
+      <script src="../../reveal/dist/reveal.js"></script>
+      <!-- <script src="../../reveal/mathjax/es5/tex-chtml-full.js"></script> -->
+      <script src="../../reveal/plugin/math/math.js"></script>
+      <script src="../../mathmacros.js"></script>
+      <!-- <script src="../../plotly.min.js"></script> -->
+
+      <script src="../../highlight/highlight.min.js"></script>
+      <script src="../../reveal/plugin/highlight/highlight.js"></script>
+
+      <script src="../../script.js"></script>
+      <script src="../../visitedSlideManager.js"></script>
+      <script src="../../effects.js"></script>
+
+      <!-- <script src="../../embed.js" defer></script> -->
+
+      <script>
+       Reveal.initialize({
+	 width: 1920,   // e.g., for 16:10
+	 height: 1200,  // e.g., for 16:10
+	 margin: 0.01,   // whitespace around content
+	 center:false,
+	 hash: true,
+	 controls: false,
+	 plugins: [ RevealMath.MathJax3, RevealHighlight ],
+
+	 // The ONLY MathJax v3 config Reveal will pass through:
+	 mathjax3: {
+       	   // tell the plugin to use your local build (since you removed the manual tag)
+       	   mathjax: '../../reveal/mathjax/es5/tex-chtml-full.js',
+       	   chtml: {
+	     matchFontHeight: false,  // stop per-paragraph x-height scaling
+	     scale: 1,                // keep math at the same CSS size as text
+	     mtextInheritFont: true   // make \text{} use your body font
+      	   },
+	   tex: {
+             inlineMath: [['$', '$'], ['\\(', '\\)']],
+             displayMath: [['$$', '$$'], ['\\[', '\\]']],
+             packages: {'[+]': ['cases','empheq','color','base','boldsymbol','upgreek','ams','newcommand','noerrors','noundefined','html']},
+             macros: window.MJ_MACROS                // <-- your macros land here
+       	   },
+       	   loader: { load: ['[tex]/cases','[tex]/empheq','[tex]/color','[tex]/boldsymbol','[tex]/upgreek','[tex]/html'] },
+
+	   // make sure your slide JS can run AFTER MathJax’s initial typeset
+	   startup: {
+             ready: () => {
+               MathJax.startup.defaultReady();
+               // (re)bind any math-dependent effects here
+               if (window.bindClickEffects) window.bindClickEffects(document);
+             }
+       	   }
+	 }
+
+       });
+
+       // also re-bind when slides change (MathJax output is already in the DOM by then)
+       Reveal.on('ready',  () => window.bindClickEffects?.(Reveal.getCurrentSlide()));
+       Reveal.on('slidechanged', e => window.bindClickEffects?.(e.currentSlide));
+
+      </script>
+
+
+
+  </body>
+</html>

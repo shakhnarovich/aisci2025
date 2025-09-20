@@ -1,0 +1,2242 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AI for Scientists Deep Dive</title>
+    <!-- if want subtitle: uncomment -->
+    <template id="subtitle">RNNs and Transformers</template>
+    <template id="date">September 2025</template>
+
+    <link rel="icon" type="image/png" sizes="64x64" href="../../icons/rjs.png">  
+    <link rel="stylesheet" href="../../reveal/dist/reveal.css">
+    <link rel="stylesheet" href="../../reveal/fonts.css">
+    <link rel="stylesheet" href="../../reveal-style.css">
+    <link rel="stylesheet" href="../../custom.css">
+    <link rel="stylesheet" href="../../effects.css">
+    <link rel="stylesheet" href="../../footer.css">
+    <link rel="stylesheet" href="../../tikz.css">
+    <link rel="stylesheet" href="../../highlight/styles/github.min.css">
+
+    <style>
+     :root {
+       --pop-fg: #005eb8;
+       --pop-bg: #edea85;
+       --pop-font-base:3rem;
+     }
+     .caption { font-size: 0.6em;}
+     body, .reveal {  
+       font-family: 'ComputerModernSans', sans-serif;
+       font-size: 42px;
+       color: navy;
+       backgrounw: white;
+     }
+     
+     .reveal .controls {
+       display: none !important;
+     }
+    </style>
+  </head>
+  <body>
+
+    
+    <div class="reveal">
+      <div class="slides">
+	
+<section id="title-slide" class="nofooter" data-section=" ">
+  <h1 id="doc-title" class="title"></h1>
+  <h1 id="doc-subtitle" class="subtitle"></h1>
+  <div class="title-row">
+    <div id="doc-author" class="author">Greg Shakhnarovich</div>
+    <img src="../../ttic-logo-full.png" alt="Institution logo" class="logo">
+  </div>
+  <div id="doc-date" class="date"></div>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Sequence modeling</h2>
+  <ul>
+    <li>Image: a grid of pixels; no natural <i>order</i>
+    </li>
+    <li>Text: a <i>sequence</i> of symbols; order reflects the
+      <span data-click="enlarge" style="--enlarge-scale:1.0"> <i>writing order</i>
+	<template data-role="pop">
+	  but not necessarily the reading time; reading is not sequential!
+	</template>
+      </span>
+      (essentially, time)
+    </li>
+    <li>Speech: acoustic signal recorded over time; continuous but digitized into finite time steps
+      <ul>
+	<li>Many other such signals in medicine, biology, physics
+	</li>
+      </ul>
+    </li>
+    <li>Video frames: ordered by (recording) time
+    </li>
+    <li class="fragment" data-fragment-index="1">
+      Sometimes <i>output</i> is a sequence even if input is not, e.g., generating text describing an image
+    </li>
+    <li class="fragment" data-fragment-index="2">It should be beneficial to capture special properties of such data
+    </li>  
+    
+  </ul>	 
+</section>
+
+<section data-section="Language models">
+  <h2 class="slide-title">Language modeling: Markov model</h2>
+  <ul>
+    <li>Key property of sequences: the probability distribution over the next item depends on the <i>history</i>
+    </li>
+    <li>Markov models: assume that the recent history is all we care about
+      \[\pc{\vx_i}{\vx_1,\ldots,\vx_{i-1}}\;=\;\pc{\vx_i}{\vx_{i-k},\ldots,\vx_{i-1}}.
+      \]
+    </li>
+    <li class="fragment" data-fragment-index="1">Example: the $n$-gram model for English, in C. Shannon's "A Mathematical Theory of Communication", 1948.
+    </li>
+    <li class="fragment" data-fragment-index="1">Zeroth order: no temoral dependency, just character frequencies.<br>
+      <tt style="color:blue">XFOML RXKHRJFFJUJ ZLPWCFWKCYJ FFJEYVKCQSGXYD QPAAMKBZAACIBZLHJQD</tt>
+    </li>
+    <li class="fragment" data-fragment-index="2">1st order (note: space is a character, and we can sample by drawing $x_i$ from the conditional)<br>
+      <tt style="color:blue">OCRO HLI RGWR NMIELWIS EU LL NBBESEBYA TH EEI ALHENHTTPA OO BTTV</tt>
+    </li>
+    <li class="fragment" data-fragment-index="3">2nd order<br>
+      <tt style="color:blue">ON IE ANTSOUTINYS ARE T INCTORE ST BE S
+	DEAMY ACHIN D ILONASIVE TUCOOWE FUSO TIZIN ANDY TOBE SEACE CTISBE</tt>
+    </li>
+    <li class="fragment" data-fragment-index="4">4th order<br>
+      <tt style="color:blue">THE GENERATED JOB PROVIDUAL BETTER TRAND THE
+      DISPLAYED CODE ABOVERY UPONDULTS WELL THE CODERST IN THESTICAL IT TO
+	HOCK BOTHE</tt>
+    </li>  
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">Modeling language with $n$-grams</h2>
+  <ul>
+    <li>$k$-th order Markov model over characters (or over words): effectively build a look-up table for $k$-long sequences.
+      <ul>
+	<li>      Given $x_1,\ldots,x_{k-1}$, consider all possible completions to $k$ -- i.e., all possible characters for next position
+      	</li>
+	<li>We can estimate probability of any sequence by using (probability) chain rule
+	</li>
+	<li>To generate: pick most frequent (greedy sampling) <span class="fragment" data-fragment-index="1">-- or sample from the <span data-click="enlarge" style="--enlarge-scale:1.0">conditional<template data-role="pop">  Recall Bayes rule
+	\[\pc{A}{B}\,=\,\frac{p(A,B)}{p(B)}\]</template></span></span>
+	</li>
+      </ul>
+
+    </li>
+    <li>Consider the sentence
+      $\vw =  \BOS\text{"The quick brown fox jumped over the lazy dog"}\EOS$
+    </li>  
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      
+      \[\begin{align}   p(w_1, \ldots, w_n) & = & p(\text{the}| \BOS)\\
+      & & p(\text{quick}|\text{the}, \BOS)\\
+      & & p(\text{brown}|\text{quick, the})\\
+      & & \ldots\\
+      & & p(\text{dog}|\text{lazy, the})\\
+      & & p(\EOS| \text{dog, lazy})
+      \end{align}    \]
+      
+
+   </div>
+   <div class="minipage" style="width:50%;">
+     <div class="fragment" data-fragment-index="1">
+       \[\hat{p}(\text{quick}|\BOS, \text{the}) =
+     \frac{\text{count}(\BOS,\text{the, quick})}{\text{count}(\BOS,
+     \text{the})}
+       \]
+     </div>  
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li class="fragment" data-fragment-index="2">The probabilities come from counting -- so in practice we are limited to 7- or 8-grams
+  </li>	 
+</ul>  
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Sequence modeling: HMM</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+  <ul>
+    <li>The traditional Markov model looks directly at dependencies between observed values over time (counting co-occurences)
+    </li>
+  </ul>	
+
+   </div>
+   <div class="minipage" style="width:40%;">
+     <div class="tabular shift-left tabular--grid proportional-fit"
+	  style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		 --img-height:2.5cm;">
+       <img src="img/seq/autoregressive.png">
+       <img class="fragment" data-fragment-index="1" src="img/seq/autoregressive-nn.png">
+     </div> <!-- tabular -->
+
+
+   </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="1">We can make it fancier by using, say, an MLP to predict the next character, but still have no <i>memory</i>
+    </li>  
+
+    <li class="fragment" data-fragment-index="1">A <i>Hidden</i> Markov Model (HMM) presumes there is a hidden (latent, i.e., unobserved) state that drives the observations. In an HMM it's a discrete state variable
+    </li>  
+</ul>
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Need two probability distributions to model:<br>
+	  The state transition probabilities $\pc{s_t}{s_{t-1}}$,<br> 
+	  The observation emission probabilities $\pc{x_t}{s_t}$
+      	</li>
+	<li class="fragment" data-fragment-index="3">With $k$ states and vocabularly of size $D$, we <span data-click="enlarge" style="--enlarge-scale:1.0">
+       	  need
+	  <template data-role="pop">We also need the probability for initial state $s_0$: a vector in $\mathbb{S}^k$ 
+	  </template>
+	</span> a $k$x$k$ matrix and a $D$x$k$ matrix
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <img class="fragment" data-fragment-index="2" src="img/seq/hmm-diagram.png" height="250px">
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li class="fragment" data-fragment-index="4">Introduced in mid-1960s, became popular in 1970s for speech recognition, where it was the reigning modeling approach until 2010s
+  </li>
+  <li class="fragment" data-fragment-index="5">This is a <i>latent variable model</i>:
+    \[\begin{align}
+    p(\vx_1,\ldots,\vx_T)\,&=\,\max_{(s_1,\ldots,s_T)}p(\vx_1,\ldots,\vx_T,s_0,s_1,\ldots,s_T)\\
+    &
+    \class{rj-hide-0-5}{=\,
+    \class{rj-alert-10-}{\class{rj-enlarge-persist rj-popover-latpop}{\max_{(s_0,s_1,\ldots,s_T)}}}p(s_0)
+    }
+    \class{rj-hide-0-6}{\pc{s_1}{s_0}}
+    \class{rj-hide-0-7}{\pc{\vx_1}{s_1}}
+    \class{rj-hide-0-8}{\pc{s_2}{s_1}\pc{\vx_2}{s_2}\ldots}    
+    \end{align}\]
+  </li>
+  <template id="latpop">The problem: there are exponentially many paths through $s_1,\ldots,s_T$ that can explain a particular sequence of $\vx$. We need a clever way to compute this; also to find \[\argmax{s_0,s_1,\ldots,s_T}\pc{s_0,\ldots,s_T}{\vx_1,\ldots,\vx_T}\] (state decoding). Many exist, e.g., the Viterbi algorithm. </template>
+</ul>  
+<span class="fragment ghost-step" data-fragment-index="6" aria-hidden="true"></span>
+<span class="fragment ghost-step" data-fragment-index="7" aria-hidden="true"></span>
+<span class="fragment ghost-step" data-fragment-index="8" aria-hidden="true"></span>
+<span class="fragment ghost-step" data-fragment-index="9" aria-hidden="true"></span>
+<span class="fragment ghost-step" data-fragment-index="10" aria-hidden="true"></span>
+</section>
+
+
+<section>
+  <h2 class="slide-title">HMM enhancements</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:75%;">
+      <ul>
+	<li>Input-output HMMs: we observe two streams of variables: $(\vx_t,\vy_t)$
+	</li>
+	<li>We now model:<br>
+	  State transitions $\pc{s_t}{s_{t-1}}$,<br>
+	  Input to state model $\pc{s_t}{s_{t-1},\vx_t}$<br>
+	  Observation emission $\pc{\vy_t}{s_t}$
+	 
+	</li>  
+	<li>Note: the machinery of HMMs requires the state to be discrete, but the observations (or here inputs and outputs) don't have to be; e.g., $\pc{s_t}{\vx_t,s_t}$ is a classifier, but $\pc{\vx_t}{s_t}$ can be a density estimator/regressor
+	</li>
+	
+      </ul>	 
+      
+
+   </div>
+    <div class="minipage" style="width:25%;">
+      <img  src="img/seq/io-hmm.png" height="380px">
+   </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:50%;">
+    <ul>
+      <li class="fragment" data-fragment-index="1">
+	Many enhancements over the decades; but ultimately limited by the discrete nature of the state
+      </li>	 
+    </ul>        
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img fragment" data-fragment-index="1" data-attrib="Sargur Srihari">
+	<div class="tabular tabular--grid proportional-fit"
+	     style="--cols:3; --col-gap:.6em; --row-gap:.35em; 
+		    --img-height:4.5cm;">
+	  <img src="img/seq/hmm-autoregressive.jpeg">
+	  <img src="img/seq/hmm-autoregressive.jpeg">
+	  <img src="img/seq/hmm-autoregressive.jpeg">
+	  
+	</div> <!-- tabular -->
+
+      </figure>
+    </div>
+</div> <!-- minipage container -->
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">HMM training and inference</h2>
+  <ul>
+    <li>HMMs must be trained from sequences of observed values, $(\vx_1,\ldots)$ or $(\vx_1,\vy_i)$
+    </li>
+    <li>In principle could use gradient descent but in practice the best way to train turned out to be the Expectation Maximization algorithm (EM) developed originally for this purpose
+      <ul>
+	<li>Became the dominant algorithm for training all kinds of latent variable models in 1970--2010s
+	</li>
+      </ul>
+    </li>
+    <li>The EM algorithm for (approximately) maximizing likelihood of a model (with parameters $\btheta$) on observed $\vx$ with latent $\vh\in\mathcal{H}$
+      \[\max_\btheta \sum_{\vh\in\mathcal{H}}p(\vx,\vh;\btheta)\]
+      <ol>
+	<li>iteration $i=0$: start by guessing the $\btheta^{(0)}$
+      	</li>
+	<li>Compute the posterior distribution over the latents (under the current parameter estimates)
+	  \[\tilde{p}^{(i)}\,=\,\pc{\vh}{\vx;\btheta^{(i)}}\]
+      	</li>
+	<li>Update model to maximize the expected likelihood
+	  \[\btheta^{(i+1)}\,=\,\argmax{\btheta} \Ep{\vh\sim\tilde{p}^{(i)}(\cdot)}{\log p(\vx,\vh;\btheta)}
+	  \]
+      	</li>
+	<li>Repeat until convergence
+	</li>
+      </ol>
+    </li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Language modeling: word2vec</h2>
+  <ul>
+    <li>An old idea in linguistics/NLP: context can tell us about the meaning
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-quote" data-attrib="— J.R. Firth, 1957">
+	<blockquote>
+	  You shall know a word by the company it keeps
+	</blockquote>
+      </figure>
+      
+   </div>
+   <div class="minipage" style="width:50%;">
+     <img src="img/lm/distributional-similarity.png" height="130px">
+   </div>
+</div> <!-- minipage container -->
+
+
+
+      <ul>
+    </li>
+    <li>Goal: map words to vectors, e.g., to use in neural network based models
+    </li>  
+    <li>If we want to map words to vectors, we may want to rely on this to convey to us which words have similar meaning
+    </li>
+    <li><tt>word2vec</tt> (Mikolov et al., 2012): learn the <i>word embeddings</i>into $\mathbb{R}^d$ by training to predict words from surrounding $n$-grams
+    </li>      
+  </ul>
+
+  <figure class="attributed-img fragment"  data-fragment-index="1" data-attrib="source:Pangelis Monogioudis">
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		--img-height:9cm;">
+      <img class="fragment" data-fragment-index="1" src="img/lm/word2vec-idea1.png">
+      <img class="fragment" data-fragment-index="2" src="img/lm/word2vec-idea2.png">
+      
+    </div> <!-- tabular -->
+
+  </figure>
+
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">word2vec: method and properties</h2>
+  <ul>
+    <li>We have a vocabulary of size $V$; want to embed each word into $\mathbb{R}^N$
+    </li>
+  </ul>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:65%;">
+      <ul>
+	
+	<li> Very simple architecture: two-layer network. Each word is a 1-hot vector $\vx$.<br>
+	  First layer: embedding $\mathbf{e}\,=\,\mathbf{W}_I\cdot\vx$, $\mathbf{W}_I\in\mathbb{R}^{N\times V}$<br>
+	  Second layer: predict output, $\vz\,=\,\mathbf{W}_O\cdot\mathbf{e}$, $\mathbf{W}_O\in\mathbb{R}^{N\times V}$<br>
+	  Finally, compute (average) cross-entropy loss between the softmax over $\vz$ and (each of) the context words; backpropagate.
+      	</li>
+	<li>Hyperparameters: $N$ and the context size
+	</li>
+      </ul>	 
+    </div>
+    <div class="minipage" style="width:35%;">
+      <img src="img/lm/skip-gram.png" height="400px">
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li class="fragment" data-fragment-index="1">Once trained: we can discard $\mathbf{W}_O$, and use the embedding $\mathbf{W}_I$ to map words to vectors, for various tasks (more on that shortly).
+  </li>
+  <li class="fragment" data-fragment-index="2">This is an example of unsupervised representation learning
+  </li>	 
+  
+</ul>  
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Word2vec embedding projector</h2>
+  <div class="r-stretch">
+    <iframe
+      src="https://projector.tensorflow.org/"
+      style="display:block;margin:0 auto;width:100%;height:100%;border:0;min-height:460px;"
+      loading="lazy"
+      allow="fullscreen"
+    >
+    </iframe>
+  </div>
+</section> 
+
+<section>
+  <h2 class="slide-title">Word2vec embedding arithmetic</h2>
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:60%;">
+    <ul>
+      <li>The vector space of word2vec embeddings captures many interesting properties of the meaning of the words
+      </li>
+      <li class="fragment" data-fragment-index="2">We can analyze it by considering vector arithmetic, e.g., $e_{king}-e_{man}+e_{woman}\approx e_{queen}$
+      </li>
+    </ul>  
+    
+
+   </div>
+   <div class="minipage" style="width:40%;">
+     <img class="fragment" data-fragment-index="1" src="img/seq/word2vec-cities.webp" height="400px">
+
+   </div>
+</div> <!-- minipage container -->
+
+  
+  <iframe class="fragment" data-fragment-index="2"
+    src="https://dash.gallery/dash-word-arithmetic/"
+    style="display:block;margin:0 auto;width:100%;height:100%;border:0;min-height:600px;"
+    loading="lazy"
+    allow="fullscreen"
+    >
+  </iframe>  
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Tokens in language modeling</h2>
+  <ul>
+    <li>What are the units that we should be embedding?
+    </li>
+    <li>Option 1: "words" as tokens
+      <ul>
+	<li>What about unknown words? Can use <tt>&lt;UNK&gt</tt> but often can infer the meaning, e.g., <tt>PhDing</tt>
+      	</li>
+	<li>Misses relationships between morphological variants, e.g., <tt>building</tt> and <tt>buildings</tt>
+	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="1">Option 2: characters as tokens
+      <ul>
+	<li>Misses the opportunity to direc<span data-alert="2"><span data-enlarge="2" style="--enlarge-fg:var(--alert-color);">t</span></span>ly represent common patterns; need very long context to make sense of a symbol
+	</li>
+      </ul>
+    </li>
+  </ul>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:65%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">Option 3: learn a tokenizer driven by information-theoretic ideas. Most common today: Byte-Pair Encoding, BPE
+      	</li>
+	<li class="fragment" data-fragment-index="3">Main idea: start with single bytes (from UTF-8 encoding);<br>
+	  find the two most co-occuring symbols, merge into new symbol;<br>
+	  continue until reach the token budget (e.g., GPT-4 BPE tokenizer has 100,256 tokens)
+      	</li>
+      </ul>	 
+      
+   </div>
+   <div class="minipage" style="width:35%;">
+     <img  class="fragment" data-fragment-index="3" src="img/lm/bpe-example.png" height="300px">
+   </div>
+</div>	 
+<ul>
+  <li class="fragment" data-fragment-index="4">Some
+    <span data-click="enlarge-persist" style="--enlarge-scale:1.0;--pop-width:500px;">
+      <template data-role="pop"><a href="https://platform.openai.com/tokenizer">OpenAI's GPT-4o tokenizer</a>  <img src="img/lm/mytokens.png" height="400px"></template>tokens
+    </span> are words, some are sub-words (including single bytes), some (very rare) may be multiple words.
+  </li>	 
+  <li class="fragment" data-fragment-index="5">So now we have a token vocabulary; can embed it (e.g., with word2vec), and do an HMM -- but can we do better?
+  </li>  
+</ul>  
+
+<span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Sequence modeling: formulation</h2>
+  <ul>
+    <li>Static data: input to hidden, hidden to output
+    </li>
+    <li class="fragment" data-fragment-index="1">One to many: image captioning
+    </li>
+    <li class="fragment" data-fragment-index="2">Many to one: video classification
+    </li>
+    <li class="fragment" data-fragment-index="3">Many to many (aligned): labeling video frames
+    </li>
+    <li class="fragment" data-fragment-index="4">Many to many, encoder/decoder setup: machine translation
+    </li>
+    <li class="fragment" data-fragment-index="4">We can not have separate parameters for each frame 
+      <span data-click="enlarge" style="--enlarge-scale:1.0;--pop-width:60%;">(why not?)
+	<template data-role="pop">
+       	  <ol>
+	    <li>Too expensive
+	    </li>
+	    <li>Want to deal with varying # of frames
+	    </li>
+	  </ol>
+	</template>
+      </span>
+    </li>
+    <li class="fragment" data-fragment-index="5">We will instead define a <i>recurrence</i> formula
+    </li>  
+  </ul>  
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:25%;">
+    \[\begin{align}
+    \class{rj-hide-0-4}{\mathbf{h}_t\,}&
+    \class{rj-hide-0-4}{=\,F\left(\mathbf{x}_t,\mathbf{h}_{t-1}\right)}\\
+    \class{rj-hide-0-5}{\widehat{\mathbf{y}}\,}&
+    \class{rj-hide-0-5}{=\,F_{out}\left(\mathbf{h}_t\right)}
+    \end{align}
+    \]
+   </div>
+    <div class="minipage" style="width:75%;">
+      <div class="tabular tabular--grid proportional-fit"
+	   style="--cols:6; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:8cm;">
+	<img class="fragment" data-fragment-index="5" src="img/seq/recurrence.png">
+	<img src="img/seq/rnn-1-1.png">
+	<img class="fragment" data-fragment-index="1" src="img/seq/rnn-1-many.png">
+	<img class="fragment" data-fragment-index="2" src="img/seq/rnn-many-1.png">
+	<img class="fragment" data-fragment-index="3"src="img/seq/rnn-many-many-sync.png">
+	<img class="fragment" data-fragment-index="4" src="img/seq/rnn-many-many.png">
+
+      </div> <!-- tabular -->
+
+    </div>
+</div> <!-- minipage container -->
+
+
+<ul>
+  <li class="fragment" data-fragment-index="6">      $F$, $F_{out}$ are neural (sub)networks!
+  </li>
+</ul>
+  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">RNN: training</h2>
+  <ul>
+    <li> Simple (single hidden layer) RNN; $g$ is the activation function
+      \[\begin{align}
+      \mathbf{h}_t\,&=\,g\left(\mathbf{W}_{xh}\vx_t+\textcolor{red}{\mathbf{W}_{hh}}\mathbf{h}_{t-1}+\mathbf{b}_h\right)\\
+      \class{rj-hide-0-3}{
+      \widehat{\mathbf{y}}_t\,
+      }&
+      \class{rj-hide-0-3}{
+      =\,\mathbf{W}_{y}\vh_t+\mathbf{b}_y
+      }
+      \end{align}
+      \]
+    </li>	 
+  </ul>  
+
+  <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:650px;">
+    <img class="fragment" data-fragment-index="1" src="img/seq/rnn-time-init.png">
+    <img class="fragment" data-fragment-index="2" src="img/seq/rnn-time-end.png">
+    <img class="fragment" data-fragment-index="3" src="img/seq/rnn-time.png">
+    <img class="fragment" data-fragment-index="4" src="img/seq/rnn-time-y.png">
+    <img class="fragment" data-fragment-index="5" src="img/seq/rnn-time-y-l.png">
+  </div>
+  <span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="2" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="3" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+  <span class="fragment ghost-step" data-fragment-index="5" aria-hidden="true"></span>
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">RNN training</h2>
+  <ul>
+    <li>Same general idea, but the notion of output (and the loss) depends on the task
+    </li>  
+  </ul>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+      <div class="tabular-col">
+	<img src="img/seq/rnn-time-y.png" height="250px">
+	<img src="img/seq/rnn-time-many-to-one.png" height="250px">
+      </div>      
+
+   </div>
+   <div class="minipage" style="width:60%;">
+     <figure class="attributed-img" data-attrib="source:Justin Johnson">
+   <img src="img/seq/rnn-time-enc-dec.png" height="500px">
+</figure>
+   </div>
+</div> <!-- minipage container -->
+
+<ul>
+  <li>Some nuts and bolts:
+    <ul>
+      <li>When we predict multiple $y$s, we end up computing the average loss (need a scalar!)
+      </li>
+      <li>$\vh_0$ is an additional set of parameters to learn
+      </li>
+      <li>Usually will have special $\BOS$, $\EOS$ tokens (beginning/end of sequence)
+      </li>
+    </ul>
+  </li>	 
+</ul>  
+
+</section>
+
+<section>
+  <h2 class="slide-title">RNN training</h2>
+  <div class="minipage-container" style="align-items: flex-start;">
+    <div class="minipage" style="width:65%;">
+      <ul>
+	<li>Consider vocabulary of [<tt>'h'</tt>,<tt>'e'</tt>,<tt>'l'</tt>,<tt>'o'</tt>, and the corpus consisting of <tt>'hello'</tt>.
+      	</li>
+	<li>Recall $\mathbf{h}_t\,=\,\tanh\left(\mathbf{W}_{xh}\vx_t+\textcolor{red}{\mathbf{W}_{hh}}\mathbf{h}_{t-1}+\mathbf{b}_h\right)$
+      	</li>
+	<li class="fragment" data-fragment-index="1">Given <tt>'h'</tt>, predict <tt>'e'</tt> (i.e., estimate $\pc{\texttt{'e'}}{\BOS,\vh_0}$, and compute cross entropy loss)
+      	</li>
+	<li class="fragment" data-fragment-index="2">Given <tt>'e'</tt> (and the state after seeing <tt>'h'</tt>) predict <tt>'l'</tt>;
+      	</li>
+	<li class="fragment" data-fragment-index="5">Continue, each time feeding the RNN <span data-click="enlarge-persist" style="--enlarge-scale:1.0; --pop-top:80%;--pop-width:300px">
+	  <template data-role="pop">This is known as "teacher forcing". 
+	  </template>the ground truth sample</span> for the previous position (regardless of what it predicted)
+	</li>
+	<li class="fragment" data-fragment-index="5">Finally, given <tt>'o'</tt> predict $\EOS$
+	</li>
+      </ul>
+      
+    </div>
+    <div class="minipage" style="width:35%;">
+      <figure class="attributed-img" data-attrib="Justin Johnson">     
+	<div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:570px;">
+	  <img src="img/seq/rnn-vals-0.png">
+   	  <img class="fragment" data-fragment-index="1" src="img/seq/rnn-vals-1.png">
+	  <img class="fragment" data-fragment-index="2" src="img/seq/rnn-vals-2.png">
+	 <img class="fragment" data-fragment-index="3" src="img/seq/rnn-vals-3.png">
+	 <img class="fragment" data-fragment-index="4" src="img/seq/rnn-vals-4.png">
+       </div>       
+      </figure>
+    </div>  
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: flex-start;">
+    <div class="minipage" style="width:73%;">
+      <ul>
+	<li class="fragment" data-fragment-index="5">There is a discrepancy in how the model is trained and how it is used to sample
+      	</li>
+	<li class="fragment" data-fragment-index="5">An attempt to mitigate it: scheduled sampling. A curriculum learning approach: flip a coin for each token, if heads, use GT sample, otherwise use the prediction from the model
+      	</li>
+	<li class="fragment" data-fragment-index="5">The probability of GT sample starts at 1 and goes to 0 over the training
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:27%;">
+      <img class="fragment" data-fragment-index="5" src="img/seq/scheduled.png" height="300px">
+   </div>
+</div> <!-- minipage container -->
+
+  
+</section>
+
+<section>
+  <h2 class="slide-title">RNN generation</h2>
+
+  <ul>
+    <li> To <i>sample</i> from the model: run <i>autoregressive</i> generation
+    </li>    
+  </ul>	 
+   <div class="minipage-container" style="align-items: flex-start;">
+     <div class="minipage" style="width:30%;">
+       <figure class="attributed-img" data-attrib="Justin Johnson">
+       	 <img  src="img/seq/rnn-sample.png" height="580px">
+       </figure>
+       
+     </div>
+     <div class="minipage" style="width:70%;">
+       <ul>
+	 <li class="fragment" data-fragment-index="1">Using $\vh_0$ and $\vx_0\,=\,E(\BOS)$, get $\vh_1$, then the logits for $\vx_1$
+	 </li>
+	 <li class="fragment" data-fragment-index="2">Sample from logits $f_1,\ldots,f_V$ ($V$ is vocabulary size)
+	   <ul>
+	     <li>Greedy sampling: pick $\argmax{i} f_i$
+	     </li>
+	     <li>Probabilistic sampling: draw from softmax distribution, for word $i$ in the vocabulary
+	       \[p(x_t=i)\,=\,
+	       \class{rj-enlarge-persist rj-popover-temppop}{
+	       \frac{\exp\left(f_i/\tau\right)}
+	       {\sum_{j\in[V]}\exp\left(f_j/\tau\right)}}
+	       \]
+	       using a <i>temperature</i> $\tau$ to control diversity/confidence
+	     </li>
+	   </ul>
+	 </li>
+	     <li class="fragment" data-fragment-index="3">Feed it back to the model as if it were ground truth; compute $\vh$; sample $\vx_2|\vx_1,\vh_2$,&hellip;
+	     </li>
+      	   </ul>
+	 </li>
+       </ul>
+     </div>
+   </div> <!-- minipage container -->
+
+   <template id="temppop">
+     The temperature (multiplicative factor) changes the distribution:
+
+     <img src="img/lm/temp-plots.png" height="150px">
+   </template>	
+   <ul>
+     <li class="fragment" data-fragment-index="4">Stop generating when the $\vx_t=\BOS$
+     </li>  
+   </ul>  
+   
+</section>
+
+
+<section>
+  <h2 class="slide-title">Backpropagation through time</h2>
+  <ul>
+    <li>Once we "unroll" the RNN, we can just treat it as any other network, and  run backprop
+    </li>
+    <li>Need an extra trick: <i>tie</i> the weights of $\mathbf{W}_{hh}$
+    </li>
+
+
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		--img-height:500px;">
+      <figure class="attributed-img" data-attrib="source:Justin Johnson">
+	<img src="img/seq/bpptt.png" height="600px">
+      </figure>
+      <figure class="attributed-img" data-attrib=" ">
+	<img class="fragment" data-fragment-index="1" src="img/seq/bptt-truncated.png" height="600px">
+      </figure>
+      
+    </div> <!-- tabular -->
+   
+    <li class="fragment" data-fragment-index="1">This can get very expensive -- need to feed the whole sentence into memory (along with many copies of the weights gradient, at least)
+    </li>
+    <li class="fragment" data-fragment-index="1">Truncated backprop through time is a solution (at a cost)
+    </li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Perplexity and other losses</h2>
+  <ul>
+    <li>Consider a discrete distribution $p(X)$; its entropy is $H(p)\,=\,-\sum_xp(X=x)\log_2 p(X=x)$
+    </li>
+    <li>The <i>perplexity</i> of the distribution is
+      \[PP(p)\,=\,2^{-H(p)}\]
+      Intuition: effective (expected) number of reasonably possible values
+    </li>
+    <li>Perplexity of [the conditional token probability induced by a] language model $p$: measured on a sequence $W=(w_1,\ldots,w_T)$, averaged over the sequence
+      <div class="minipage-container" style="align-items: center;">
+	<div class="minipage" style="width:50%;">      
+	  \[
+	  PP(p,W)\,=\,2^{-\frac{1}{T}
+	  \sum_{i=1}^T\log_2 \pc{w_i}{w_0,\ldots,w_{i-1}}}\]
+	</div>
+	<div class="minipage" style="width:50%;">
+	 <img src="img/lm/ppl_full.gif" height="120px"> 
+	</div>
+      </div> <!-- minipage container -->
+    </li>
+    <li>At training time, the usual loss is just (token level) cross entropy,
+      \[L(p;W)\,=\,\sum_i -\log\pc{w_i}{w_0,\ldots,w_{i-1}}\]
+    </li>
+    <li>When used for a well defined task like translation, there are task-specific metrics, like <span data-click="enlarge" style="--enlarge-scale=1.0; --pop-width:70%"><template data-role="pop">
+      <u>B</u>i<u>l</u>ingual <u>E</u>valuation <u>U</u>nderstudy: BLEU-$n$ considers precisions $\{p_k\}$ of $k$-gram matches, for $k=1,\ldots,n$,
+      \[\mathrm{BLEU}_n\,=\,BP\cdot\exp\left(\sum_{k=1}^n\log p_k\right)\]
+      where $BP$ is "brevity penalty" (smaller than one if the prediction is shorter than reference). Example:
+
+      <img src="img/lm/bleu-ngrams.png" height="150px">
+      
+      <img src="img/lm/bleu-precisions.png" height="150px">
+
+      yields $\mathrm{BLEU}_4\,\approx\,0.33$
+    </template> BLEU</span> or CiDER -- but these are not differentiable, so can not be used in training!
+    </li>  
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Sequence modeling: LSTM</h2>
+  <ul>
+    <li>The flow of gradient through the RNN:
+
+      <figure class="attributed-img" data-attrib="source:Justin Johnson">
+	<img src="img/seq/rnn-grad-flow.png">
+      </figure>
+    </li>
+    <li class="fragment" data-fragment-index="1">Lots of multiplication by $\mathbf{W}$ and repeated application of the derivative of activation
+    </li>
+    <li class="fragment" data-fragment-index="2">Depending on the conditioning of $\mathbf{W}$ (largest singular value), will get
+      <span data-click="enlarge" style="--enlarge-scale:1.0;">
+	<template data-role="pop">
+	  We have seen earlier a successful attempt to deal with it: ResNet!
+	</template>
+	vanishing</span> or
+            <span data-click="enlarge" style="--enlarge-scale:1.0;">
+	      <template data-role="pop">
+		The main trick to combat this: gradient clipping
+
+		<img src="img/seq/grad-clipping.jpeg" height="120px">
+	      </template>
+	      exploding
+	    </span> gradients
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Long Short Term Memory (LSTM): in addition to hidden state $\vh_t$, maintain "cell state" vector $\vc_t$
+	</li>
+      </ul>
+   </div>
+    <div class="minipage" style="width:50%;">
+      <img class="fragment" data-fragment-index="2" src="img/seq/lstm-setup.png" height="280px">
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">LSTM gates</h2>
+  <figure class="attributed-img" data-attrib="Justin Johnson">    
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:8cm;">
+      <img src="img/seq/lstm-cell.png">
+      <img src="img/seq/lstm-setup.png">
+  </div> <!-- tabular -->
+  
+    </figure>
+
+    <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+    <ul>
+    <li>The <b>i</b>nput gate: writing to the cell</li>
+    <li>The <b>f</b>orget gate: erasing the cell</li>      
+    </ul>
+   </div>
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>The <b>o</b>utput gate: reading off the cell    </li>
+	<li>The <b>g</b>ain gate: how much to write </li>  
+      </ul>	 
+
+    </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:60%;">
+    <ul>
+      <li class="fragment" data-fragment-index="1">The gradient flow is drastically improved!<br>
+	<img src="img/seq/lstm-grad-flow.png" height="300px">
+	
+      </li>
+      
+    </ul>        
+
+   </div>
+    <div class="minipage fragment" style="width:40%;"  data-fragment-index="1">
+      LSTM can handle 100s and (generally) 1000s of steps
+   </div>
+</div> <!-- minipage container -->
+
+
+</section>
+<section>
+  <h2 class="slide-title">Deep LSTM networks</h2>
+  <ul>
+    <li>We can stack multiple LSTM layers!
+    </li>  
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      \[\def\lind#1{{\color{red} #1}}
+      \begin{align}
+      \begin{bmatrix}
+      \mathbf{i}_t^\lind{l}\\
+      \mathbf{f}_t^\lind{l}\\
+      \mathbf{o}_t^\lind{l}\\
+      \mathbf{g}_t^\lind{l}\\
+      \end{bmatrix}\,&=\,
+      \begin{pmatrix}
+      \sigma\\
+      \sigma\\
+      \sigma\\
+      \tanh
+      \end{pmatrix}\left(\mathbf{W}\vh_{t-1}^{\color{red} l}\\
+      \vh_t^{\color{red}l-1}\,+\,\mathbf{b}_h^\lind{l}
+      \right)\\
+      \mathbf{c}_t^\lind{l}\,&=\,
+      \mathbf{f}_t^\lind{l}\,\odot\,\mathbf{c}_{t-1}^\lind{l}\,+\,
+      \mathbf{i}_t^\lind{l}\,\odot\,\mathbf{g}_t^\lind{l}\\
+      \mathbf{h}_t^\lind{l}\,&=\,\mathbf{o}_t^\lind{l}\,\odot\,
+      \tanh\left(\mathbf{c}_t^\lind{l}\right)\\
+      \widehat{\mathbf{y}}_t\,&=\,F\left(\mathbf{h}_t^\lind{1},\ldots,\mathbf{h}_t^\lind{L}\right)
+      \end{align}
+    
+      \]
+
+      <ul>
+	<li>      $t$: time index, $\lind{l}$: layer index
+	  
+       	</li>
+	<li>Can add skip connections (between layers for the same $t$) too, of course
+	</li>
+      </ul>
+   </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/seq/rnn-3layer.png" height="700px">
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Language generation with LSTMs</h2>
+  <ul>
+    <li>Recall Shannon's $n$-grams:<br>
+      <tt>THE GENERATED JOB PROVIDUAL BETTER TRAND THE
+	DISPLAYED CODE ABOVERY UPONDULTS WELL THE CODERST IN THESTICAL IT TO
+	HOCK BOTHE</tt>
+    </li>
+    <li class="fragment" data-fragment-index="1"> A. Karpathy, 2015: trained a 3-layer LSTM ($d_{hidden}=512$) on a corpus of Shakespeare's collected works; this took a few hours.
+
+<div class="minipage-container" style="align-items: flex-start;">
+  <div class="minipage" style="width:50%;">
+    <img src="img/seq/shakespear-1.jpeg" width="90%">
+
+   </div>
+   <div class="minipage" style="width:50%;">
+     <img src="img/seq/shakespear-2.jpeg" width="90%">
+   </div>
+</div> <!-- minipage container -->
+
+      
+    </li>  
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Conditional language generation</h2>
+  <ul>
+    <li>One of the first major applications of LSTMs: "image captioning"
+    </li>This is an "one to many" RNN task; needs to fuse vision and language models/representations
+
+    
+    <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:650px;margin-top:30px">
+      <img src="img/vision/imcap-0.png">
+      <img class="fragment" data-fragment-index="1"  src="img/vision/imcap-1.png">
+      <img class="fragment" data-fragment-index="2"  src="img/vision/imcap-2.png">
+      <img class="fragment" data-fragment-index="3"  src="img/vision/imcap-3.png">
+      <img class="fragment" data-fragment-index="4"  src="img/vision/imcap-4.png">
+      <img class="fragment" data-fragment-index="5"  src="img/vision/imcap-5.png">
+      <img class="fragment" data-fragment-index="6"  src="img/vision/imcap-6.png">
+      <img class="fragment" data-fragment-index="7"  src="img/vision/imcap-7.png">
+    </div>  
+
+    <li class="fragment" data-fragment-index="2" >An additional input to $\vh_t$: image embedding (using a "frozen" convnet). 
+    </li>
+    <li class="fragment" data-fragment-index="2">The conditioning is static, playing the same role for every output word
+    </li>  
+      
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Language modeling: ELMO</h2>
+  <ul>
+    <li>ELMo (<b>E</b>mbeddings for <b>L</b>anguage <b>M</b>odeling) had a big impact with two ideas:
+    </li>
+  </ul>	 
+
+      <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:45%;">
+      <ul>
+	<li>Bi-drectional LSTM. This is really two LSTMs, run in parallel (one start to end, one backwards)
+      	</li>
+	<li>Trained as usual, with cross-entropy for next (or, for backward model, previous) word prediction
+      	</li>
+      </ul>	 
+
+    </div>
+    <div class="minipage" style="width:55%;">
+      <figure class="attributed-img" data-attrib="Jay Alammar">
+	<img src="img/lm/elmo-bilstm.png" height="480px">	
+      </figure>
+
+
+    </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Contextual embeddings: the vector representing the work <tt>stick</tt> will depend on the sentence in which it appears!
+      	</li>
+    	<li>ELMo starts with word2vec embeddings, but them transforms them given the context
+    	</li>  
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:50%;">
+     <img src="img/lm/elmo-robin-williams.png" height="380px">
+   </div>
+</div> <!-- minipage container -->
+
+
+</section>
+
+<section>
+  <h2 class="slide-title">ELMO as a "foundation model"</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+   	<li>Once the bi-LSTM is trained, a word (in a sentence) is represented by a linear combination of all the layers in both models <i>and</i> the original embeddings (word2vec, or some improved version like GloVe)
+	  
+	</li>
+	<li>If the LSTMs have $L$ layers with $k$ dimensions, we need just $2L+1$ weights to produce the embeddings
+	</li>
+      </ul>	 
+      
+
+   </div>
+   <div class="minipage" style="width:40%;">
+     <figure class="attributed-img" data-attrib="Jay Alammar">
+       <img src="img/lm/elmo-embedding.png">
+     </figure>
+     
+   </div>
+  </div> <!-- minipage container -->
+  <ul>
+    <li class="fragment" data-fragment-index="1">Key novelty of ELMo: it achieved state of the art results on many NLP tasks, with the model (LSTM) being either fixed (with only the embedding weights learned), or fine-tuned for a little time on unlabeled data from the task domain.
+    </li>
+  </ul>  
+</section>
+
+
+<section data-section="Attention">
+  <h2 class="slide-title">Attention in RNNs</h2>
+  <ul>
+    <li>Recall encoder/decoder RNN (e.g., for translation)
+    </li>  
+    <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:650px;margin-top:30px">
+      <img src="img/attn/rnn-translate-0.png">
+      <img src="img/attn/rnn-translate-1.png" class="fragment" data-fragment-index="1">
+      <img src="img/attn/rnn-translate-2.png" class="fragment" data-fragment-index="2">
+      <img src="img/attn/rnn-translate-3.png" class="fragment" data-fragment-index="3">
+      <img src="img/attn/rnn-translate-4.png" class="fragment" data-fragment-index="4">
+      <img src="img/attn/rnn-translate-5.png" class="fragment" data-fragment-index="5">
+      <img src="img/attn/rnn-translate-6.png" class="fragment" data-fragment-index="6">
+      <img src="img/attn/rnn-translate-7.png" class="fragment" data-fragment-index="7">
+      <img src="img/attn/rnn-translate-8.png" class="fragment" data-fragment-index="8">
+      <img src="img/attn/rnn-translate-9.png" class="fragment" data-fragment-index="9">
+      <img src="img/attn/rnn-translate-10.png" class="fragment" data-fragment-index="10">    
+    </div>  
+
+    <li class="fragment" data-fragment-index="4">There is an information bottleneck between encoder (input) and decoder (output): a single hidden state vector, independent of the input size
+    </li>
+    <li class="fragment" data-fragment-index="6">Idea (Bahdanau et al., Neural Machine Translation by Jointly Learning to Align and Translate, 2014): have a different summary of the input for each output token
+    </li>
+    <li class="fragment" data-fragment-index="10">We can
+      <span data-click="enlarge-persist" style="--enlarge-scale:1.0">
+	<template data-role="pop">
+	  The attention map:
+
+	  <img src="img/attn/rnn-attn-map.png" height="600px">
+	</template>
+	inspect
+      </span> the attention weights $\{a_{t,i}\}$ and see what they capture
+    </li>  
+  </ul>  
+ 
+  
+</section>
+
+<section>
+  <h2 class="slide-title">Show, attend and tell</h2>
+  <ul>
+    <li>The start of the <span data-click="enlarge-persist" style="--enlarge-scale:1.0"><template data-role="pop"><img src="img/attn/x-attend-y-list.png" height="700px"></template>
+      wave</span> of "X, Attend and Y" papers
+    </li>
+</ul>  
+    <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:650px;margin-top:30px">
+      <img src="img/attn/sat-0.png">
+      <img src="img/attn/sat-1.png" class="fragment" data-fragment-index="1">
+      <img src="img/attn/sat-2.png" class="fragment" data-fragment-index="2">
+      <img src="img/attn/sat-3.png" class="fragment" data-fragment-index="3">
+      <img src="img/attn/sat-4.png" class="fragment" data-fragment-index="4">
+      <img src="img/attn/sat-5.png" class="fragment" data-fragment-index="5">
+      <img src="img/attn/sat-6.png" class="fragment" data-fragment-index="6">
+      <img src="img/attn/sat-7.png" class="fragment" data-fragment-index="7">
+      <img src="img/attn/sat-8.png" class="fragment" data-fragment-index="8">
+      <img src="img/attn/sat-9.png" class="fragment" data-fragment-index="9">
+    </div>
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:25%;">
+
+      <ul>
+	<li class="fragment" data-fragment-index="9">Attention map over decoding time:
+	</li>  
+      </ul>  
+
+   </div>
+   <div class="minipage" style="width:75%;">
+
+     <img class="fragment" data-fragment-index="9" src="img/attn/sat-map.png" height="240px" >
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">What is "attention"?</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+      <ul>
+	<li>Human vision: foveated field of view + saccadic eye movements      
+
+      	</li>
+      </ul>
+   </div>
+   <div class="minipage" style="width:60%;">
+
+     <div class="tabular tabular--grid proportional-fit"
+	  style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		 --img-height:280px; align-items:center;">
+
+       <figure class="attributed-img" data-attrib="Falk et al., 1986">
+	 <img src="img/vision/retina-fovea-falk-brill-stork-86.png" style="--img-height:240px" >
+       </figure>
+       <figure class="attributed-img" data-attrib="Tobii Inc.">
+	 <img src="img/vision/foveated-tobii.png">
+       </figure>
+     </div> <!-- tabular -->
+
+   </div>
+  </div> <!-- minipage container -->
+
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Well known result: sequence of saccades depends on the task at hand (e.g., visual search)
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <figure class="attributed-img fragment" data-fragment-index="1" data-attrib="Yarbus, 1970s">
+	<img src="img/vision/yarbus.jpg">
+      </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Attention is all you need (?)</h2>
+  <ul>
+    <li> So far: attention is computed by a learned function. The (most recent during decoding) state vector $\vs_{t-1}$ attends to input elements $\ve_1,\ldots,\vh_n$:
+      \[e_{t,i}=f_{\text{att}}\left(\vs_{t-1},\vh_i\right)
+      \qquad
+      \class{rj-hide-0-0}{
+      a_{t,\text{:}}\,=\,\operatorname{softmax}\left(e_{t,\text{:}}\right)
+      }
+      \]
+      <span class="fragment" data-fragment-index="2">and converts them (weighted by the computed attention) to context used in decoding, $\vc_t\,=\sum_{i}a_{t,i}\vh_i$
+    </li>
+    <li class="fragment" data-fragment-index="2">Note: the input element indices $i$ have no meaning; the attention operates on the input as a
+      <span data-click="enlarge-persist" style="--enlarge-scale:1.0;"> <i>set</i><template data-role="pop">We can permute the elements of the input and the result of the attention-weighted computation of $\vc_t$ won't change</template>
+      </span>
+    </li>
+    <li class="fragment" data-fragment-index="3">Attention is All You Need (Vaswani et al, 2017): replace $f_{\text{att}}$ with a simple dot product
+    </li>  
+  </ul>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<li class="fragment" data-fragment-index="3">Each input element is encoded in two ways: it has a <i>key</i> $\vk_i\in\mathbb{R}^{d_k}$ and a <i>value</i> $\vv_i\in\mathbb{R}^{d_v}$; $d_v$ is the dimension of the context vector we need to compute
+      	</li>
+	<li class="fragment" data-fragment-index="4">The state at step $t$ is embedded as a <i>query</i> vector $\vq_t\in\mathbb{R}^{d_k}$ (same dimension as keys)
+      	</li>
+	<li class="fragment" data-fragment-index="5">Attention scores are computed as dot products $\ip{\vq_t}{\vk_{i}}$, turned into unit-sum by softmax, and used as weights for the linear combination of values to get the context
+      	</li>
+   	\[\class{rj-hide-0-3}{
+	e_{t,i}\,=\,\ip{\vq_t}{\vk_i}\qquad\qquad
+  	}
+	\class{rj-hide-0-4}{
+	a_{t,\text{:}}\,=\,\operatorname{softmax}\left(e_{t,\text{:}}\right)\quad\qquad
+    	}
+	\class{rj-hide-0-5}{
+	\vc_t\,=\,\sum_ia_{t,i}\vv_i
+	}
+	\]
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:30%;">
+     <figure class="attributed-img fragment" data-fragment-index="3" data-attrib="Vaswani et al.">
+       <img src="img/attn/self-attn-block.jpeg" height="350px" style="margin-bottom:1em;">
+     </figure>
+
+
+   </div>
+</div> <!-- minipage container -->
+
+  
+<span class="fragment ghost-step" data-fragment-index="1" aria-hidden="true"></span>
+<span class="fragment ghost-step" data-fragment-index="6" aria-hidden="true"></span>
+</section>
+
+
+<section>
+  <h2 class="slide-title">Review: geometry of dot products</h2>
+  <ul>
+    <li>Consider vectors $\va$, $\vb$ in $\mathbb{R}^d$; 
+      $\ip{\va}{\vb}\,=\,\eucnorm{\va}\eucnorm{\vb}\cos(\va,\vb)$
+    </li>
+    <li class="fragment" data-fragment-index="1">Common in ML: think of the dot product as a measure of <i>similarity</i>
+    </li>
+    <li class="fragment" data-fragment-index="1">Suppose we have a <i>query</i> vector $\vq$ and a set of matching candidates (<i>keys</i>) $\vk_1,\ldots,\vk_n$. We can construct the matching probability distribution by softmax over similarities,
+      \[\class{rj-strike-4-}{\style{--strike-angle:-10deg;--strike-thickness:8px;}{
+      \text{score}\left(\vq,\vk_i\right)\,=\,
+      \frac{\exp\left(\ip{\vq}{\vk_i}\right)}
+      {\sum_{j=1}^n\exp\left(\ip{\vq}{\vk_j}\right)}}
+      }
+      \]
+    </li>  
+    <li class="fragment" data-fragment-index="2">Consider $s=\ip{\va}{\vb}$ for two random vectors $\va$, $\vb\in\mathbb{R}^d$, zero mean and unit variance.
+      \[\E{s}\,=\,0,\qquad\qquad
+      \class{rj-enlarge-persist rj-popover-varpop}{\vari(s)\,=\,d}
+      \]
+      <template id="varpop">
+	\[\vari(XY)\,=\,\vari(X)\vari(Y)+\vari(X)\E{Y}^2+\vari(Y)\E{X}^2\]
+      </template>
+    </li>
+    <li class="fragment" data-fragment-index="3">This means if we have $n$ random $\vk$s, one of them with high probability will be much higher than others, yielding a random "match" (because softmax saturates)
+    </li>
+    <li class="fragment" data-fragment-index="4">Solution: normalize the dot products to unit scale,
+      \[ \text{score}\left(\vq,\vk_i\right)\,=\,
+      \frac{\exp\left(\ip{\vq}{\vk_i}\,/\,{\color{red}\sqrt{d}}\right)}
+      {\sum_{j=1}^n\exp\left(\ip{\vq}{\vk_j}\,/\,{\color{red}\sqrt{d}}\right)}
+      \]
+    </li>  
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Self-attention</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Let's say for now we just want to embed the input (no decoder); instead of computing the "context" for next output step, we are computing the representation for an input element in the context of the entire input
+      	</li>
+	<li>Input: set of <span data-click="enlarge" style="--enlarge-scale:1.0">vectors<template data-role="pop">Where do the $\vx$s come from? Embeddings! word2vec, ELMO, convnet, etc.; possibly with a linear mapping to the desired dimension $\dmodel$</template>
+	</span> $\vx_1,\ldots\vx_T\in\mathbb{R}^{\dmodel}$
+	</li>
+	<li>Keys, queries, values are all derived from the input vectors using linear layers; $\mW_q$, $\mW_k$, $\mW_v\,\in\mathbb{R}^{\dmodel\times\dmodel}$
+     	  \[\begin{align}
+	  \vq_i&=\mathbf{W}_q\vx_i,\\
+	  \vk_k&=\mathbf{W}_k\vx_i,\\
+	  \vv_i&=\mathbf{W}_v\vx_i\\
+	  \end{align}
+	  \]
+      	</li>
+	<li>Note: if we stack $\vx$s into a matrix, we get all the keys in a single matrix multiplication (same for values and queries)
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:40%;">
+
+      <img src="img/attn/self-attn-block.jpeg" height="300px">
+      
+      <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:650px;">
+	<img src="img/trans/self-attn-0.png">
+	<img src="img/trans/self-attn-1.png" class="fragment" data-fragment-index="1">[
+	<img src="img/trans/self-attn-2.png" class="fragment" data-fragment-index="2">
+	<img src="img/trans/self-attn-3.png" class="fragment" data-fragment-index="3">
+	<img src="img/trans/self-attn-4.png" class="fragment" data-fragment-index="4">
+	<img src="img/trans/self-attn-5.png" class="fragment" data-fragment-index="5">
+      </div>
+      
+    </div>
+  </div> <!-- minipage container -->
+
+  <ul>
+    <li class="fragment" data-fragment-index="5">Note: you could have different latent dimensions for $\vk$ and $\vq$; usually not done in practice
+    </li>  
+</ul>  
+  
+</section>
+
+
+<section>
+  <h2 class="slide-title">Positional encoding</h2>
+
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:70%;">
+    <ul>
+      <li>The attention mechanism does not care about input positions; permuting input (and un-permuting the output of the attention head accordingly) does not change the results
+      </li>
+      <li class="fragment" data-fragment-index="2">Solution: <i>position encodin</i>, mapping from (1D, 2D, 3D&hellip;) position to a vector
+      </li>
+</ul>  
+
+   </div>
+    <div class="minipage" style="width:30%;">
+  
+      <div class="tabular tabular--grid two-row-captions proportional-fit"
+	   style="--cols:3; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:8cm;">
+	<img src="img/attn/self-attn-block.jpeg">
+	<img src="img/trans/self-attn-transformer-block.png" height="400px">
+	
+      </div> <!-- tabular -->
+    </div>
+</div> <!-- minipage container -->
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">Popular: sinusodial embedding (with multiple frequencies)
+	  <div class="tabular tabular--grid proportional-fit"
+	       style="--cols:2; --col-gap:.6em; align-items:center;">
+	    <img src="img/trans/position-enc-formula.jpeg" style="--img-height:110px">
+	    <img src="img/trans/position-enc-sin.jpeg" style="--img-height:360px">
+	    
+	  </div> <!-- tabular -->
+
+	</li>
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:50%;">
+     <figure class="attributed-img" data-attrib="Justin Johnson">
+     <div class="tabular tabular--grid two-row-captions"
+	  style="--cols:2; --col-gap:.6em; --row-gap:.35em; --img-height:450px" >
+       <div class="diagram-stack" style="width: 100%; margin: 0 auto; --stack-img-height:450px;">
+	 <img src="img/trans/self-attn-5.png">
+	 <img src="img/trans/self-attn-permuted.png" class="fragment" data-fragment-index="1">
+       </div>	
+
+       <img src="img/trans/pos-added.png" class="fragment" data-fragment-index="2">
+
+       <span class="caption fragment" data-fragment-index="2">
+	 Without position
+       </span>
+       <span class="caption fragment" data-fragment-index="2">
+	 With position encoding
+       </span>
+       
+     </div> <!-- tabular -->
+     </figure>
+
+     
+     
+   </div>
+</div> <!-- minipage container -->
+
+<ul>
+  <li class="fragment" data-fragment-index="3">These are concatentated or (commonly; after linear transform to fit the dimensions) added to $\vx$
+  </li>	 
+</ul>  
+</section>
+
+<section>
+  <h2 class="slide-title">Multi-headed attention</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>In a transformer, the attention mechanism is supposed to capture some properties that are relevant for embedding the input; but there could be different aspects we want to capture
+	</li>
+	<li class="fragment" data-fragment-index="2">
+	  Split $\vx\in\mathbb{R}^{\dmodel}$ into $h$ parts; each part is processed by a $\dmodel/h$-dim attention head; the results are concatenated ($\dmodel$) and mixed with a $\dmodel\to\dmodel$ linear layer, or an MLP 
+      	</li>
+	<li class="fragment" data-fragment-index="3">Everything is still just a bunch of matrix multiplications; can do everything in parallel!
+      	</li>
+      </ul>
+
+      <div class="minipage-container" style="align-items: center;">
+      	<div class="minipage" style="width:70%;">
+      	  <ul>
+      	    <li class="fragment" data-fragment-index="3">Note: everything is with a residual connections -- "Add & <span data-pulse="4" style="--pulse-up:2.0;"><span data-alert="4"> Norm</span></span>"
+	    </li>
+	  </ul>	       
+	  
+	</div>
+	<div class="minipage" style="width:30%;">
+	  <img class="fragment" data-fragment-index="3" src="img/trans/self-attn-transformer-block.png" height="300px">
+	</div>
+      </div> <!-- minipage container -->
+
+   </div>
+   <div class="minipage" style="width:40%;">
+     <div class="tabular tabular--grid proportional-fit"
+	  style="--cols:2; --col-gap:.6em; --row-gap:.35em;">
+       <img class="fragment" data-fragment-index="1"  src="img/attn/self-attn-multihead.jpeg" style="--img-height:280px">
+       <figure class="attributed-img" data-attrib="Jay Alammar">
+	 
+	 <img src="img/trans/multi-headed-example.png" style="--img-height:360px">
+
+       </figure>
+     </div> <!-- tabular -->
+
+
+     <img src="img/trans/multi-headed-split.png" height="600px" class="fragment" data-fragment-index="2">
+     
+
+   </div>
+  </div> <!-- minipage container -->
+
+  <span class="fragment ghost-step" data-fragment-index="4" aria-hidden="true"></span>
+
+</section>
+
+<section>
+  <h2 class="slide-title">Layer norm</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+
+      <ul>
+	<li>Recall batch <span data-click="enlarge" style="--enlarge-scale:1.0">
+	  <template data-role="pop">
+	    Other normalization schemes populat at some point:
+
+	    <div class="tabular tabular--grid two-row-captions proportional-fit"
+		 style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+			--img-height:5.5cm;">
+	      <img src="img/norm/instance-norm.png">
+	      <img src="img/norm/group-norm.png">
+	      <span class="caption">Instance norm</span>
+	      <span class="caption">Group norm</span>
+       	    </div> <!-- tabular -->
+	  </template>
+	  normalization</span>: push activations per feature to look (over the batch) like a sample from standard Gaussian.
+	  <ul><li>Normalize across samples and spatial dimensions,<br> per feature.
+	  </li>
+	  </ul>
+	</li>
+	
+	<li class="fragment" data-fragment-index="1">Layer normalization: push all activations across all dimensions and channels <i>for each input</i> to be standardized
+	  <ul>
+	    <li>Normalize across features and dimensions,<br> per sample
+	    </li>
+	  </ul>
+	  
+	</li>
+	<li class="fragment" data-fragment-index="2">Original transformer paper had the 2nd layer norm after the "feed-forward" head recombination
+      	</li>
+	<li class="fragment" data-fragment-index="2">Typical practice today: put it before
+	</li>
+      </ul>	       
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular shift-left tabular--grid two-row-captions proportional-fit"
+	   style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		  --img-height:7cm;">
+	<img src="img/norm/batch-norm.png">
+	<img class="fragment" data-fragment-index="1" src="img/norm/layer-norm.png">
+      </div> <!-- tabular -->
+
+      <img src="img/norm/pre-post-norm.jpeg" class="fragment" data-fragment-index="2">
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+
+<section data-section="Transformers">
+  <h2 class="slide-title">Transformer block</h2>
+  <ul>
+    <li>So: a transformer block <i>transforms</i> a set of input vectors $\vx_1,\ldots,\vx_n$ into a set of output vectors $\vx_1,\ldots,\vx_n$
+    </li>
+    <li class="fragment" data-fragment-index="1">When endowed with a position encoding, it transforms a <i>sequence</i> (or grid, etc.) of inputs into an aligned sequence of outputs
+    </li>  
+  </ul>
+
+
+  
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">We can chain transformer blocks into a sequence; that is a <i>transformer</i> network 
+      	</li>
+	<li class="fragment" data-fragment-index="2">Each block with $h$ heads requires:<br>
+	  three $\dmodel\times\frac{\dmodel}{h}$ weight matrices per attention head,<br>
+	  parameters for the linear projection MLP
+      	</li>
+	<li class="fragment" data-fragment-index="2">Input layer is a bit special; in language models, it's just a token embedding look-up table
+	</li>
+	<li class="fragment" data-fragment-index="4">What do we do with the final set of embeddings?
+      	</li>
+	<li class="fragment" data-fragment-index="4">How do we train this?
+	</li>
+</ul>  
+    </div>
+   <div class="minipage" style="width:50%;">
+     <div class="tabular tabular--grid proportional-fit"
+	  style="--cols:2; --col-gap:.6em;align-items:center;">
+
+       <img src="img/trans/transformer-block.png" style="--img-height:400px;">
+       
+       <img class="fragment" data-fragment-index="2" src="img/trans/transformer-sequence.png" style="--img-height:700px;">
+     </div> <!-- tabular -->
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Masked self-attention</h2>
+  <div class="minipage-container" style="align-items:flex-start;">
+    <div class="minipage" style="width:55%;">
+
+      <ul>
+	<li>Recall the earlier decoder with attention
+	</li>
+	<li>It relied on sequence processing; each output token is affected by the input and the output <span data-alert="1-2">so far</span>
+      	</li>
+	<li class="fragment" data-fragment-index="1">To get this in a transformer we need masking
+      	</li>
+	<li class="fragment" data-fragment-index="2">We don't want the decoder to look at future tokens
+      	</li>
+      </ul>	 
+      
+
+    </div>
+    <div class="minipage" style="width:45%;">
+      <img src="img/attn/rnn-translate-10.png" height="300px">    
+    </div> 
+  </div> <!-- minipage container -->
+  
+  <div class="minipage-container" style="align-items: flex-start;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li class="fragment" data-fragment-index="2">So we will override the attention scores (prior to softmax) to be $-\infty$
+      	</li>
+	<li class="fragment" data-fragment-index="4">Encoder: no need to mask anything
+      	</li>
+	<li class="fragment" data-fragment-index="5">Decoder: for each token, mask the tokens after it
+      	</li>
+	<li class="fragment" data-fragment-index="5">We can still do it all in parallel!
+	</li>
+      </ul>  
+
+    </div>
+    <div class="minipage" style="width:40%;">
+      <div class="tabular tabular--flex proportional-fit" style="--cols:2; --col-gap:.6em; align-items:center;">
+	<div class="tabular-col" style="align-items:center">
+	  <div class="diagram-stack" style="width:auto;--stack-img-height:600px;aspect-ratio: 0.7;">
+	    <img src="img/trans/masked-attn-1.png" class="fragment" data-fragment-index="1">
+	    <img src="img/trans/masked-attn-2.png" class="fragment" data-fragment-index="3">
+	  </div>  
+    	</div>
+	<div class="tabular-col" style="align-items:center">
+	  <img src="img/trans/transformer-model.jpeg" style="--img-height:400px">
+	</div>
+
+      </div>
+    </div>
+  </div> <!-- minipage container -->
+  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">BERT</h2>
+  <ul>
+    <li>If we have a translation <span data-click="enlarge" style="--enlarge-scale:1.0;--pop-top:40vh"><template data-role="pop">A <i>corpus</i> is just a text dataset. Translation corpus means (usually) a set of pairs text elements which are correct translations of each other, e.g., English and Chinese sentences.</template>corpus</span>, we can train in a supervised fashion
+    </li>
+    <li>It's much more appealing to train without supervision
+    </li>
+    <li>BERT: Bidirectional Encoder Representations from Transformers, is trained with two proxy objectives that don't require labels
+    </li>  
+  </ul>
+
+  <div class="tabular tabular--grid two-row-captions proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:600px">
+    <img src="img/lm/bert-masking.png">
+    <img src="img/lm/bert-2sent.png">
+    <span class="caption">Token unmasking</span>
+    <span class="caption">2-sentence classification </span>
+  </div> <!-- tabular -->
+  
+</section>
+
+
+<section>
+  <h2 class="slide-title">BERT masked language modeling task</h2>
+  <ul>
+    <li>Special mask token -- like a new word in the vocabulary (with optimized values)
+    </li>
+    <li>For every masked position, predict the token
+      <ul><li>Recall: embedding is $\ve\in\mathbb{R}^n$; it is mapped to model space by $\mathbf{W}_{\text{emb}}\in\mathbb{R}^{\dmodel\times V}$. The last hidden vector for a masked token's position $\vh\in\mathbb{R}^\dmodel$.</li>
+	<li>
+	We can reuse the embedding weights (transposed): $\vh\mW^T_{\text{emb}}$ gives us an estimated embedding space vector; use softmax to map to token distribution
+      </li>
+      </ul>
+    </li>  
+  </ul>
+  <div class="tabular tabular--grid proportional-fit"
+       style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+	      --img-height:500px">
+    <img src="img/lm/unembedding-jurafsky.png" style="--img-height:400px">
+    <figure class="attributed-img" data-attrib="Dan Jurafsky">
+      <img src="img/lm/bert-mlm-jurafsky.png" height="500px">
+    </figure>
+  </div> <!-- tabular -->
+
+  <ul>
+    <li>Original BERT training: masking 15% of the tokens
+    </li>  
+</ul>  
+  
+</section>
+
+<section>
+  <h2 class="slide-title">BERT sentence association task</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:45%;">
+
+      <ul>
+	<li>Two more special tokens:
+	  <ul>
+	    <li>"Class token" <tt>[CLS]</tt> which comes at the <span data-click="enlarge" style="--enlarge-scale:1.0">
+	      <template data-role="pop"> Not the same as the <tt>&lt;BOS&gt;</tt> token!</template>start</span> 
+      	    </li>
+	    <li>A sentence <span data-click="enlarge" style="--enlarge-scale:1.0">
+	      <template data-role="pop"> Not the same as the $\EOS$ token!</template>separator</span> token <tt>[SEP]</tt>
+	    </li>
+	  </ul>
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:55%;">
+      <figure class="attributed-img" data-attrib="Dan Jurafsky">
+	<img src="img/lm/bert-2-sent-jurafsky.png" height="450px">
+      </figure>
+    </div>
+</div> <!-- minipage container -->
+<ul>
+    <li class="fragment" data-fragment-index="1">Construct training samples from pairs of sentences; 50% are consecutive in the original text, 50% randomly paired
+      
+    </li>
+    <li class="fragment" data-fragment-index="1">Still mask 15% (don't mask special tokens)
+    </li>
+    <li class="fragment" data-fragment-index="2">After the $L$ layers of the encoder are done, classify $\vh^L_\texttt{[CLS]}$ using an MLP into "paired" or "random"
+    </li>
+    <li class="fragment" data-fragment-index="3">After training BERT we can throw away both the MLM head and the sentence pair head! 
+    </li>
+    <li class="fragment" data-fragment-index="3">Can fine-tune a new classification task (with or without fine-tuning BERT)!
+    </li>  
+    <li class="fragment" data-fragment-index="3">Note: It is not clear that the sentence task is very important
+    </li>  
+  </ul>	 
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">GPT</h2>
+  <ul>
+    <li>Generative Pretrained Transformer: same architecture as BERT, but:
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:70%;">
+      <ul>
+	<ul>
+	  <li>One direction (left to right) only;
+      	  </li>
+	  <li>"Causal masking": mask the future tokens, not random %
+      	  </li>
+	  <li>A "decoder-only" (while BERT is "encoder-only")
+	  </li>
+      	</ul>
+	<li>A natively generative model; can sample from it immediately after training
+      	</li>
+	<li class="fragment" data-fragment-index="1">Can be used for downstream language tasks by using special tokens, like <tt>[EXTRACT]</tt>
+      	</li>
+
+      </ul>  
+
+      <figure class="attributed-img fragment" data-fragment-index="1" data-attrib="source:OpenAI">
+	<img src="img/lm/openai-tasks.png" height="500px">
+      </figure>
+
+   </div>
+   <div class="minipage" style="width:30%;">
+     <figure class="attributed-img" data-attrib="source:Wikipedia">
+       <img src="img/lm/gpt1.svg" height="800px">
+     </figure>
+   </div>
+</div> <!-- minipage container -->
+
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">T5 models</h2>
+  <ul>
+    <li>Text-to-test transfer transformers (Google, from 2019): encoder-decoder model, pre-trained on multiple tasks
+    </li>
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		--img-height:8cm;">
+      <img src="img/lm/t5-encoder-decoder.svg">
+      <img src="img/lm/t5-finetune-summarization.svg">
+
+    </div> <!-- tabular -->
+    <li>Each task has the form [input text] &rarr; [output text]
+      <ul>
+  	<li class="fragment" data-fragment-index="1">Unmasking: <tt>Thank you [X] for inviting me to your party [Y] week</tt> &rarr; <br><span class="fragment" data-fragment-index="2"><tt> [X] inviting me [Y] last</tt></class>
+      	</li>
+
+     	<li class="fragment" data-fragment-index="3">Grammaticality/fluency judgments: <tt>the course is jumping well</tt><span class="fragment" data-fragment-index="4"><tt>not acceptable</tt></span>
+      	</li>
+	<li class="fragment" data-fragment-index="5">Translation: <tt>Translate English to German: Thank you</tt> &rarr;<tt>Danke</tt>
+      	</li>
+	<li class="fragment" data-fragment-index="6">Summarization: <tt> Summarize this text: &hellip;</tt> &rarr; [summary]
+      	</li>
+      </ul>
+    </li>
+    <li class="fragment" data-fragment-index="6">Widely used current versions: T5 and ByT5 (the latter operates on raw UTF-8 bytes; no tokenizer!)
+    </li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">RLHF and ChatGPT</h2>
+  <img src="img/lm/RLHF-openai.png" height="700px">
+  <ul>
+    <li>GPT: a (decoder only) transformer predicting tokens
+    </li>
+    <li>    ChatGPT: a "chatbot", i.e., dialogue model. The input consists of a concatenation of a <i><span data-click="enlarge" style="--enlarge-scale:1.0">system prompt<template data-role="pop"> <tt>You are a helpful and competent assistant striving to give concise and accurate answers. When relying on facts found in sources you will provide a citation. [...]</template></span></i> and the history of the conversation so far. 
+    </li>  
+    <li>OpenAI and other companies collect user preference data to fine-tune the model and add various mechanisms on top of it (filtering, MoE weights, safety, etc.)
+    </li>  
+  </ul>	 
+</section>
+
+
+<section>
+  <h2 class="slide-title">Instruction tuning and in-context learning</h2>
+  <figure class="attributed-img" data-attrib="source: Zhang et al., &quot;Dive into Deep Learning&quot;">
+    <img src="img/lm/gpt-3-xshot.svg">
+  </figure>
+  <ul>
+    <li>Instruction tuning: provide a set of input/output pairs demonstrating successful instruction following. E.g., input = prompt for creating a piece of code, output = high quality code matching the input description.
+    </li>
+    <li class="fragment" data-fragment-index="1">In-context learning: the (usually very small) set of input/output pairs is provided in the input, as part of the model's "prompt". The attention mechanisms in the transformer handle the "inference"
+    </li>
+    <li class="fragment" data-fragment-index="1">In-context learning is not really learning in the traditional ML sense; more like nearest neighbors ("test time learning"). The model weights are unchanged.
+    </li>
+    <li class="fragment" data-fragment-index="2">Upside: much cheaper and can work with as little as a single example.
+    </li>
+    <li class="fragment" data-fragment-index="2">Downside: no learning means every task is a clean slate (other than the pretrained model)
+    </li>  
+</ul>  
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">The transformer LM zoo</h2>
+  <ul>
+    <li>Which is better, BERT or GPT?
+      <ul class="fragment" data-fragment-index="1">
+	<li>As an <i>encoder</i>, BERT tends to do better. If you need text understanding (rather than generation), BERT may be a good choice
+      	</li>
+	<li>As a generator, GPT and similar models are hands-down superior
+      	</li>
+      </ul>
+      <li class="fragment" data-fragment-index="1">What's the difference between GPT-3, GPT-3.5, GPT-4, GPT-5, etc.?
+     	<ul class="fragment" data-fragment-index="2">
+	  <li>Scale, training data, and starting with 3.5, training procedure and many things on top of the model, e.g., ensembles
+	  </li>
+	</ul>
+      </li>
+    </li>
+    <li class="fragment" data-fragment-index="3">Most of the powerful models are closed-source with scant details about their architecture and training
+    </li>
+    <li class="fragment" data-fragment-index="3">Some large open-source models: the LLaMa family (Meta AI), 8B and 70B params;<br>
+      Google (DeepMind) Gemma 2 (9B and 27B) and T5 (up to 11B);<br>
+      Qwen models (up to 110B params)
+    </li>
+    <li class="fragment" data-fragment-index="3">Open-source models can run locally (no need to pay for memberships or API calls), be fine-tuned, analyzed, etc.
+      <ul>
+	<li>Some corporate models can be fine-tuned on custom data; this is expensive and limited in scope (and inscrutable)
+	</li>
+      </ul>
+    </li>  
+  </ul>	 
+</section>
+
+
+<section data-section="Transformers for images">
+  <h2 class="slide-title">Images to vectors: brief history</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Early work on vision: images represented as maps,
+	  rules, predicates, etc.
+	</li>  
+	<li>Mapping images to vectors is a long-standing goal in vision; vectors are friendly to modern ML
+	</li>        
+      </ul>  
+    </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/vision/parts-config.jpg" height="300px">
+   </div>
+  </div> <!-- minipage container -->
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:40%;">
+
+    
+    <ul>
+      <li>Early efforts on ML-based image classification: flatten the whole $n\times n$ pixel image into
+	a vector, $\mathbb{R}^{n^2}$ or $\mathbb{R}^{3n^2}$
+      </li>
+    </ul>      
+
+   </div>
+   <div class="minipage" style="width:60%;">
+     <div class="tabular tabular--grid two-row-captions proportional-fit"
+	  style="--cols:2; --col-gap:.6em; --row-gap:.35em; 
+		 --img-height:7cm;">
+       <img src="img/vision/coil-20.png">
+       <img src="img/vision/olivetti.jpeg">
+       <span class="caption">COIL-20</span>
+       <span class="caption">Olivetti faces</span>
+     </div> <!-- tabular -->
+
+   </div>
+</div> <!-- minipage container -->
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Eigenfaces: represent images as a (low-dim) set of weights over
+	  a basis
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/vision/eigenfaces.png" height="300px">
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+<section>
+  <h2 class="slide-title">Images to vectors: brief history</h2>
+<div class="minipage-container" style="align-items: center;">
+  <div class="minipage" style="width:60%;">
+    <ul>
+      <li>Feature pyramid (Lazebnik et al., 2006):
+     	<ul>
+	  <li>Extract descriptors; initially with <span data-click="enlarge">"interest point operators"<template data-role="pop">A big area of research in vision in late 1990s-early 2000s: identify a sparse set of locations in an image where useful information can be extracted from. Mostly not learning based.</template></span>; later, just on a grid
+	  </li>
+	  <li>Cluster to form a ``vocabulary''
+	  </li>
+	  <li>
+	  Compute histograms over coarase-to-fine pyramid of regions;
+	    concatenate all histograms
+	  </li>
+	</ul>
+      </li>  
+    </ul>	       
+
+   </div>
+    <div class="minipage" style="width:40%;">
+      <img src="img/vision/feature-pyramid.png" height="350px">
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li>2012--2020: convnets with a fully connected layer mapping images to vectors
+  </li>
+  <li>For detection, segmentation etc., using the convnet output (feature tensor) means there is a grid of vectors
+  </li>
+</ul>  
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Models were trained on increasing amounts of data, but dominated by hand-crafted architectures, narrow tasks, and diminishing returns from scale 
+	</li>
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:40%;">
+
+     <figure class="attributed-img" data-attrib="MaskR-CNN">
+
+       <img src="img/vision/maskrcnn.png" height="300px">
+     </figure>
+
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">DETR</h2>
+  <img src="img/vision/detr-diagram.png" height="300px">
+  <ul>
+    <li>End-to-End Object Detection with Transformers, Carion et al., 2020
+    </li>  
+  </ul>
+
+<div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:60%;">
+      <ul>
+	<li>Task: given a fix set of categories ('dog','horse',airplane') report tight bounding boxes and category label for every instance of each category
+	</li>
+	<li>Decoding image features into detections involves cross-attention between <i>object queries</i> and image features
+      	</li>
+	<li>Two task-specific MLPs sit on the output predicting bounding boxes and class labels for detected objects
+	</li>
+      </ul>
+
+   </div>
+   <div class="minipage" style="width:40%;">
+     <img src="img/vision/detr-transformer.png" height="600px">
+   </div>
+</div> <!-- minipage container -->
+
+
+  
+</section>
+
+
+<section>
+  <h2 class="slide-title"><u>Vi</u>sion <u>T</u>ransformers</h2>
+  <ul>
+    <li>An image is worth 16x16 words:
+      transformers for image recognition at scale, Dosovitskiy et al. (2018)
+    </li>  
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;">
+      <ul>
+	<li>Image patches are mapped to vectors in isolation (pixels, maybe
+	  projected, or convnets) (cf. word2vec)
+      	</li>
+	<li>Vectors + positions are ``mixed'' via transformer layers
+      	</li>
+	<li>The downstream task operates on ``class token(s)'' or the tensor
+	  of patch-associated output tokens
+      	</li>
+	<li class="fragment" data-fragment-index="1">Nomenclature: three "model sizes"
+	  <img class="fragment" data-fragment-index="1" src="img/vision/vit-models-table.svg" height="120px">
+	  operating on different patch sizes (i.e., image resolutions); e.g., ViT_L/14 is the large model on 14x14 pixel patches
+	</li>
+      </ul>
+
+   </div>
+    <div class="minipage" style="width:50%;">
+      <img src="img/vision/vit.gif" height="650px">
+   </div>
+</div> <!-- minipage container -->
+
+</section>
+
+
+<section>
+  <h2 class="slide-title">Swin transformers</h2>
+  <ul>
+    <li>Two key ideas (Liu et al., 2021):
+    </li>
+  </ul>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:50%;" class="fragment" data-fragment-index="1">
+      <ul >
+	<li>Fine-to-coarse patch merging
+	</li>
+      </ul>
+
+      <img src="img/vision/swin-attn.jpeg" height="500px">
+    </div>
+    <div class="minipage" style="width:50%;" class="fragment" data-fragment-index="2">
+
+      <ul>
+	<li><span data-alert="3">s</span>hifting <span data-alert="3">win</span>dows
+	</li>
+     </ul>  
+      
+      <img src="img/vision/swin-diagram.jpeg" height="500px">
+    </div>
+</div> <!-- minipage container -->
+<ul>
+  <li class="fragment" data-fragment-index="4">Local attention interleaved with shifted windows allows for rapid mixing
+  </li>
+  <li class="fragment" data-fragment-index="4">Allows extraction of features at fine-grained resolution
+    without paying the price in many huge attention matrices
+  </li>	 
+</ul>  
+
+</section>
+
+<section>
+  <h2 class="slide-title">Receptive field in transformers</h2>
+  <ul>
+    <li>In theory, the receptive field of every unit in an (encoder) ViT is the whole image
+    </li>
+    <li>But it is possible that for a patch position, attention values far from that position are almost always zero.
+    </li>
+    <li>We want to study the <span data-click="enlarge" style="--enlarge-scale:1.0; --pop-top:70%">effective<template data-role="pop"> This is done by back-propagating from the loss all the way to input: \[\nabla_{\textcolor{red}{\vx}}L(\btheta;\textcolor{red}{\vx})\] gives a map of the effect of every pixel on the loss. Let network output (logits) be $\vy;$ to get the ERF we can arbitrarily set $\partial L/\partial \vy\,=\,1$. </template></span> receptive field (ERF)
+    </li>
+    <li>Do Vision Transformers See Like Convolutional Neural Networks? (Raghu et al., 2022): The ERF of ViT is in fact much more global than convnets
+    </li>
+    <div class="tabular tabular--grid proportional-fit"
+	 style="--cols:2; --col-gap:.6em;">
+      <img src="img/vision/erf-resnet50.png">
+      <img src="img/vision/erf-vitb32.png">
+
+    </div> <!-- tabular -->
+  </ul>	 
+</section>
+
+<section>
+  <h2 class="slide-title">TimeSformer</h2>
+  <ul>
+    <li>Bertasius et al., Is Space-Time Attention All You Need for Video Understanding? (2021)
+    </li>
+    <li>A straightforward application of ViT to 3D grid of patches (height, width, number of frames).
+    </li>
+    <li>Problem: too expensive (attention cost is quadratic in number of tokens)
+    </li>
+    <div class="minipage-container" style="align-items: center;">
+      <div class="minipage" style="width:65%;">
+	<figure class="attributed-img fragment" data-fragment-index="1" data-attrib="Bertasius et al.">
+	  <img src="img/vision/video-attn-patterns.png" height="600px">
+	</figure>
+	
+   </div>
+    <div class="minipage" style="width:35%;">
+      <div text-align="left">
+	<span style="color:blue">blue</span>: the attending patch<br>
+      </div>
+   </div>
+</div> <!-- minipage container -->
+
+<li class="fragment" data-fragment-index="2">The "divided space-time" attention shows the best trade-off (accuracy vs. compute and memory cost)
+</li>
+<li class="fragment" data-fragment-index="2">Still, requires sampling 1/32 frames
+</li>  
+  </ul>	 
+</section>
+
+
+
+<section>
+  <h2 class="slide-title">Transformers vs. convnets</h2>
+  <div class="minipage-container" style="align-items: center;">
+    <div class="minipage" style="width:40%;">
+      <ul>
+	<li><span data-click="enlarge-persist" style="--enlarge-scale:1.0">Valiant<template data-role="pop"> <img src="img/vision/convnext-tricks.svg">
+ </template></span> efforts by convnet enthusiasts to catch up to transformers
+	</li>
+	<li>ConvNeXt: A ConvNet for the 2020s (Liu et al., 2022)
+	</li>
+      </ul>	       
+
+   </div>
+    <div class="minipage" style="width:60%;">
+      <img src="img/vision/convnext.png" height="500px">
+
+   </div>
+</div> <!-- minipage container -->
+<ul>
+  <li>Convnets remain relevant, but for many tasks ViT (pre-trained on a large data set with some <span data-click="jiggle">self-supervised</span> objective) is probably a good bet
+  </li>
+  <li class="fragment" data-fragment-index="1">Some transformer advantages:
+    <ul>
+      <li>Receptive field size is decoupled from depth
+      </li>
+      <li>(Probably) easier to train with self-supervision;
+      </li>
+      <li>(Probably) easier to fine-tune with limited resources
+      </li>
+    </ul>  
+  </li>	 
+</ul>  
+
+</section>
+
+
+
+
+
+
+<!-- the footer (shown unless section class="nofooter";
+     
+-->
+<div id="footer-bar" class="footer-bar">
+  <div class="footer-left"></div>
+  <div class="footer-section" id="section-label-overlay"></div>
+  <div class="footer-slide-number" id="slide-number-overlay"></div>
+</div>
+
+
+
+      </div> <!-- slides  -->
+    </div> <!-- reveal  -->
+    
+    
+    
+    <!-- Reveal + plugins -->
+    <script src="../../reveal/dist/reveal.js"></script>
+    <!-- <script src="../../reveal/mathjax/es5/tex-chtml-full.js"></script> -->
+    <script src="../../reveal/plugin/math/math.js"></script>
+    <script src="../../mathmacros.js"></script>
+    <!-- adding local macros for MJ  -->
+    <script>
+     Object.assign(window.MJ_MACROS, {
+       dmodel: ['d_{\\mathrm{model}}'],
+       dhead: ['d_{\\text{head}}'],
+       BOS: ['\\mathrm{[BOS]}'],
+       EOS: ['\\mathrm{[EOS]}'],
+     });
+    </script>
+    <!-- <script src="../../plotly.min.js"></script> -->
+
+    <script src="../../highlight/highlight.min.js"></script>
+    <script src="../../reveal/plugin/highlight/highlight.js"></script>
+    
+    <script src="../../script.js"></script>
+    <script src="../../visitedSlideManager.js"></script>
+    <script src="../../effects.js"></script>
+
+    <!-- <script src="../../embed.js" defer></script> -->
+    
+    <script>
+     Reveal.initialize({
+       width: 1920,   // e.g., for 16:9
+       height: 1200,  // e.g., for 16:9
+       margin: 0.01,   // whitespace around content
+       center:false,
+       hash: true,
+       controls: false,
+       plugins: [ RevealMath.MathJax3, RevealHighlight ],
+
+       // The ONLY MathJax v3 config Reveal will pass through:
+       mathjax3: {
+       	 // tell the plugin to use your local build (since you removed the manual tag)
+       	 mathjax: '../../reveal/mathjax/es5/tex-chtml-full.js',
+       	 chtml: {
+	   matchFontHeight: false,  // stop per-paragraph x-height scaling
+	   scale: 1,                // keep math at the same CSS size as text
+	   mtextInheritFont: true   // make \text{} use your body font
+      	 },
+	 tex: {
+           inlineMath: [['$', '$'], ['\\(', '\\)']],
+           displayMath: [['$$', '$$'], ['\\[', '\\]']],
+           packages: {'[+]': ['cases','empheq','color','base','boldsymbol','upgreek','ams','newcommand','noerrors','noundefined','html']},
+           macros: window.MJ_MACROS
+       	 },
+       	 loader: { load: ['[tex]/cases','[tex]/empheq','[tex]/color','[tex]/boldsymbol','[tex]/upgreek','[tex]/html'] },
+	 
+	 // make sure your slide JS can run AFTER MathJax’s initial typeset
+	 startup: {
+           ready: () => {
+             MathJax.startup.defaultReady();
+             // (re)bind any math-dependent effects here
+             if (window.bindClickEffects) window.bindClickEffects(document);
+           }
+       	 }
+       }
+       
+     });
+     
+     // also re-bind when slides change (MathJax output is already in the DOM by then)
+     Reveal.on('ready',  () => window.bindClickEffects?.(Reveal.getCurrentSlide()));
+     Reveal.on('slidechanged', e => window.bindClickEffects?.(e.currentSlide));
+     
+    </script>
+
+
+
+  </body>
+</html>
+
