@@ -1,0 +1,43 @@
+<html>
+<head>
+<script src="http://distill.pub/template.js"></script>
+<script type="text/javascript" async src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+  <link rel="stylesheet" type="text/css" href="../assets/widgets.css">
+<script src="../assets/lib/lib.js"></script>
+<script src="../assets/utils.js"></script>
+
+</head> 
+
+  <script>
+  function mathjax() {
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [['$','$'], ['\$','\$']],
+      processEscapes: true
+    }
+  });
+  }
+  </script>
+
+<body onload = "mathjax()">
+  <dt-article class="centered">
+  <p>
+  Hold down the left mouse button and drag in the Comp window to create a paragraph text block. The edge—the text’s bounding box— is defined by how far you dragged the mouse when you created the paragraph text layer. This style of text wraps text to the next line when your type reaches the edge of the current line.
+
+You can resize the bounding box by clicking to place the cursor within the text, then dragging on one of the sizing handles around the perimeter of the bounding box. Shift-dragging a sizing handle will constrain the proportions of the bounding box. Make sure you don’t accidentally drag a sizing handle with the Selection tool, or you’ll scale the text, not its bounding box.
+  </p>
+  <script src = "../assets/phasediagram_description.js"></script>
+  <figure id = "phasediagram0" style="position:relative; width:950px; height:720px;margin-left:auto; margin-right:auto">
+  <div id = "phasediagram0div"; style="position:absolute; left:80px; top:10px">
+  </div>
+  </figure>
+  <script>
+    phaseDiagram_dec(d3.select("#phasediagram0div"))
+  </script>
+  <p>
+Hold down the left mouse button and drag in the Comp window to create a paragraph text block. The edge—the text’s bounding box— is defined by how far you dragged the mouse when you created the paragraph text layer. This style of text wraps text to the next line when your type reaches the edge of the current line.
+
+You can resize the bounding box by clicking to place the cursor within the text, then dragging on one of the sizing handles around the perimeter of the bounding box. Shift-dragging a sizing handle will constrain the proportions of the bounding box. Make sure you don’t accidentally drag a sizing handle with the Selection tool, or you’ll scale the text, not its bounding box.
+  </p>
+  </dt-article>
+</body>

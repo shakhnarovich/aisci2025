@@ -1,0 +1,74 @@
+<!doctype html>
+<meta charset="utf-8">
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="../assets/widgets.css">
+  <script src="../assets/lib/lib.js"></script>
+  <script src="../assets/utils.js"></script>
+<style>
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  position: absolute;
+  pointer-events: none;
+}
+
+
+/* Northward tooltips */
+.d3-tip.n:after {
+  content: "\25BC";
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+  text-align: center;
+}
+
+</style>
+</head>
+<body>
+  <figure id = "flow"></figure>
+  <script src="../assets/flow.js"></script>
+  <script>
+    d3.queue()
+      .defer(d3.json, "../assets/data/Sigma.json")
+      .defer(d3.json, "../assets/data/matrix.json")
+      .defer(d3.json, "../assets/data/Uval.json")
+      .await(function(error, FlowSigma, M, FlowU) {
+        if (error) {
+          console.error("Error loading data files");
+        }
+        else {
+          renderFlowWidget(d3.select("#flow"), FlowSigma, M, FlowU)
+            annotations = [
+              {
+                "x": 0,
+                "y": 0,
+                "path": "M 379,55 A 28.57 28.57 0 0 0 338,30",
+                "text": "Optimal parameters",
+                "textOffset": [
+                  321,
+                  65
+                ]
+              }
+            ]
+            drawAnnotations(d3.select("#flow"), annotations)
+
+        }
+      });
+  </script>
+</body>
