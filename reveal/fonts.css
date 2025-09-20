@@ -1,0 +1,27 @@
+@font-face {
+  font-family: 'ComputerModernSans';
+  src: url('./fonts/cmunss.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'ComputerModernSans';
+  src: url('./fonts/cmunsx.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'ComputerModernSans';
+  src: url('./fonts/cmunsi.otf') format('opentype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'ComputerModernSans';
+  src: url('./fonts/cmunbxo.otf') format('opentype'); /* or similar */
+  font-weight: bold;
+  font-style: italic;
+}

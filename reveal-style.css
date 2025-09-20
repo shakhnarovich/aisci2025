@@ -1,0 +1,28 @@
+.navigate-left,
+.navigate-right,
+.navigate-up,
+.navigate-down {
+  bottom: 90px;           /* move up to clear section label bar */
+  top: auto;              /* disable default top alignment */
+}
+
+.navigate-left {
+  left: 20px;
+}
+
+.navigate-right {
+  right: 20px;
+}
+
+.navigate-up {
+  top: 20px;
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.navigate-down {
+  bottom: 100px;          /* above the section label bar */
+  left: 50%;
+  transform: translateX(-50%);
+}
