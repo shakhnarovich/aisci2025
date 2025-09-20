@@ -5,7 +5,11 @@
 <style>
  body { font: 16px/1.5 system-ui, sans-serif; padding: 3rem 1rem; max-width: 48rem; margin: auto; }
  h1 { margin-bottom: 1rem; }
- ul { list-style: none; padding: 0; }
+ /* Remove bullets only on ULs that are not nested inside another UL */
+ ul:not(:where(ul ul)) { list-style: none; padding-left: 0; margin: 0; }
+
+/* Nested ULs keep bullets and indentation */
+ul ul { list-style: disc; padding-left: 1.25rem; }
  li { margin: .6rem 0; }
  a { text-decoration: none; }
 </style>
